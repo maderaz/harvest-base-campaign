@@ -88,18 +88,68 @@
 
 /* ── Hero tweaks ───────────────────────────────────────────── */
 .uni-hub-test .uni-hub-hero-headline { min-width: 0; }
-.uni-hub-test .vault-link {
+.uni-hub-test .uni-hub-sub { margin-bottom: 10px; }
+
+/* Vault contract address on its own line beneath the subtitle.
+   Reads like a mono code chip; clickable to Basescan. */
+.uni-hub-test .vault-address {
+  display: inline-block;
+  max-width: 100%;
+  padding: 6px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.005em;
   color: var(--ink-2);
-  font-size: 13.5px;
-  text-decoration: underline;
-  text-decoration-color: var(--line);
-  text-underline-offset: 3px;
-  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
-.uni-hub-test .vault-link:hover {
+.uni-hub-test .vault-address:hover {
   color: var(--ink);
-  text-decoration-color: var(--gold);
+  border-color: var(--ink-3);
+  background: var(--card-2);
 }
+
+/* Tinted info badge - blue (Base brand) - announcing the
+   incentives kickoff. Sits one line below the vault address. */
+.incentives-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 13px 6px 11px;
+  background: rgba(0, 82, 255, 0.08);
+  border: 1px solid rgba(0, 82, 255, 0.28);
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #0052ff;
+  letter-spacing: 0.005em;
+}
+.incentives-dot {
+  width: 9px;
+  height: 9px;
+  background: #0052ff;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.incentives-note {
+  color: rgba(0, 82, 255, 0.65);
+  font-weight: 400;
+  font-size: 11.5px;
+}
+:root[data-theme="dark"] .incentives-badge {
+  background: rgba(0, 82, 255, 0.18);
+  border-color: rgba(120, 150, 255, 0.45);
+  color: #9bb5ff;
+}
+:root[data-theme="dark"] .incentives-note { color: rgba(155, 181, 255, 0.7); }
+:root[data-theme="dark"] .incentives-dot { background: #6a8fff; }
 
 /* ── Pill toggle groups (period + chart-type) ──────────────── */
 .pill-toggle {
@@ -231,6 +281,15 @@
 .rankings-row .ranking-section .uni-hub-section-title { font-size: 19px; }
 .rankings-row .hub-table-wrap { margin-top: 4px; }
 
+/* Both ranking section heads get the same min-height so the date
+   picker on the right column doesn't push the table below it
+   lower than the table on the left. */
+.rankings-row .uni-hub-section-head {
+  min-height: 42px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 /* Compact stats strip sitting above each ranking table.
    White card-2 surface, clean ink-on-light or ink-on-dark numbers. */
 .ranking-stats {
@@ -274,17 +333,30 @@
    columns fit inside the 50/50 ranking column. */
 .uni-hub-test .hub-thead.holders-grid,
 .uni-hub-test .hub-row.holders-grid {
-  grid-template-columns: 32px minmax(0, 1.2fr) 0.9fr 0.9fr 0.5fr 0.95fr;
-  gap: 10px;
-  padding-left: 16px;
-  padding-right: 16px;
+  grid-template-columns: 30px minmax(0, 1.2fr) 0.85fr 0.85fr 0.7fr 0.85fr;
+  gap: 8px;
+  padding-left: 14px;
+  padding-right: 14px;
 }
 .uni-hub-test .hub-thead.holders-snapshot-grid,
 .uni-hub-test .hub-row.holders-snapshot-grid {
-  grid-template-columns: 32px minmax(0, 1.4fr) 0.9fr 0.9fr 0.5fr;
-  gap: 10px;
-  padding-left: 16px;
-  padding-right: 16px;
+  grid-template-columns: 30px minmax(0, 1.4fr) 0.9fr 0.9fr 0.7fr;
+  gap: 8px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+/* Column titles must never break into two lines (a wrapped title
+   was forcing the whole header row taller and pushing the column
+   off-alignment with the sibling table). nowrap + a touch smaller
+   font keeps them on a single line. */
+.uni-hub-test .hub-thead.holders-grid .hub-th,
+.uni-hub-test .hub-thead.holders-snapshot-grid .hub-th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  letter-spacing: 0;
 }
 
 /* Row vertical padding: 18px in components.css. Knock it ~20%
@@ -358,37 +430,64 @@
 .snapshot-controls {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 .snapshot-label {
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: var(--ink-3);
 }
+
+/* Sleek date picker: kill the native chrome, slim pill background,
+   custom calendar icon on the right via background-image SVG.
+   The native `::-webkit-calendar-picker-indicator` is stretched to
+   cover the field so the entire pill stays clickable. */
 .snapshot-date {
-  padding: 6px 12px;
-  background: var(--card);
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  padding: 6px 32px 6px 14px;
+  background-color: var(--card-2);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236e6c66' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='5' width='18' height='16' rx='2.5'/><line x1='3' y1='10' x2='21' y2='10'/><line x1='8' y1='3' x2='8' y2='7'/><line x1='16' y1='3' x2='16' y2='7'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 13px 13px;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.12s ease;
+  min-width: 144px;
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
 }
-.snapshot-date:hover { border-color: var(--ink-3); }
-.snapshot-date:focus { border-color: var(--gold); }
+.snapshot-date:hover {
+  border-color: var(--ink-3);
+  background-color: var(--card);
+}
+.snapshot-date:focus-visible {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(255, 185, 54, 0.18);
+}
 .snapshot-date::-webkit-calendar-picker-indicator {
-  opacity: 0.6;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
   cursor: pointer;
 }
-:root[data-theme="dark"] .snapshot-date::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-  opacity: 0.7;
+:root[data-theme="dark"] .snapshot-date {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a9892' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='5' width='18' height='16' rx='2.5'/><line x1='3' y1='10' x2='21' y2='10'/><line x1='8' y1='3' x2='8' y2='7'/><line x1='16' y1='3' x2='16' y2='7'/></svg>");
 }
 
 /* ── Stat value overflow safety ────────────────────────────── */

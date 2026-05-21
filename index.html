@@ -6,6 +6,21 @@
   <title>WETH Autopilot Vault Dashboard - Base</title>
   <meta name="description" content="TVL, APY, and holder data for the Harvest WETH Autopilot vault on Base." />
 
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Harvest Dashboard - Base Season" />
+  <meta property="og:description" content="Daily TVL, APY, and holder data for the Harvest WETH Autopilot vault on Base." />
+  <meta property="og:image" content="./WEBOG.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="676" />
+  <meta property="og:image:alt" content="Harvest Dashboard - Base Season" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Harvest Dashboard - Base Season" />
+  <meta name="twitter:description" content="Daily TVL, APY, and holder data for the Harvest WETH Autopilot vault on Base." />
+  <meta name="twitter:image" content="./WEBOG.png" />
+
+  <link rel="icon" type="image/png" href="./WEBOG.png" />
+
   <script>
     (function () {
       try {
@@ -58,9 +73,14 @@
       <div class="uni-hub-hero-headline">
         <h1 class="uni-hub-h1">WETH Autopilot - Base</h1>
         <p class="uni-hub-sub">
-          Daily TVL, APY, and holder data for the Harvest plasma vault
-          <a id="vault-link" class="vault-link mono" href="#" target="_blank" rel="noreferrer">0x7872...aa97</a>.
+          Daily TVL, APY, and holder data for the Harvest plasma vault.
         </p>
+        <a id="vault-link" class="vault-address mono" href="#" target="_blank" rel="noreferrer">0x7872893e528fe2c0829e405960db5b742112aa97</a>
+        <div class="incentives-badge">
+          <span class="incentives-dot" aria-hidden="true"></span>
+          Start of the Base Incentives on Harvest: <span id="incentives-date">-</span>
+          <span class="incentives-note">(example date)</span>
+        </div>
       </div>
       <div class="uni-hub-stats" style="grid-template-columns: repeat(2, 1fr);">
         <div class="uni-hub-stat">
@@ -193,10 +213,10 @@
             <div class="hub-thead holders-grid" role="row">
               <span class="hub-th hub-th-rank">#</span>
               <span class="hub-th">Address</span>
-              <span class="hub-th hub-th-right">USD Value</span>
+              <span class="hub-th hub-th-right">Value</span>
               <span class="hub-th hub-th-right">Shares</span>
               <span class="hub-th hub-th-right">% Supply</span>
-              <span class="hub-th hub-th-right">First Deposit</span>
+              <span class="hub-th hub-th-right">Joined</span>
             </div>
             <div id="holders-rows">
               <div class="hub-empty">Loading holders...</div>
@@ -246,7 +266,7 @@
             <div class="hub-thead holders-snapshot-grid" role="row">
               <span class="hub-th hub-th-rank">#</span>
               <span class="hub-th">Address</span>
-              <span class="hub-th hub-th-right">USD Value</span>
+              <span class="hub-th hub-th-right">Value</span>
               <span class="hub-th hub-th-right">Shares</span>
               <span class="hub-th hub-th-right">% Supply</span>
             </div>
