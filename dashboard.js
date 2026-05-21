@@ -31,8 +31,11 @@
     tvlChart: null,
     holdersChart: null,
     currentPeriod: 'ALL',
+    chartType: 'bar',
     shareDecimals: 18,
     underlyingSymbol: 'WETH',
+    usdPerShareNow: 0,
+    currentTvl: 0,
   };
 
   // ─── Tiny DOM helper ─────────────────────────────────────
@@ -73,7 +76,7 @@
   }
   function fmtDate(timestamp) {
     if (!timestamp) return '-';
-    return new Date(timestamp * 1000).toLocaleDateString(undefined, {
+    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
     });
   }
@@ -288,6 +291,36 @@
     return t;
   }
 
+  function bigToShares(big, decimals) {
+    const d = decimals == null ? 18 : decimals;
+    return Number(big) / Math.pow(10, d);
+  }
+
+  // Find the most recent historyDaily entry on-or-before the given day.
+  function findHistoryForDate(dateKey) {
+    const arr = state.historyDaily;
+    let result = null;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].date <= dateKey) result = arr[i];
+      else break;
+    }
+    return result;
+  }
+
+  // USD value of a single share unit (already accounting for token decimals).
+  // Returns 0 when we can't derive it (no TVL, no shares).
+  function usdPerShareForDate(dateKey) {
+    const snap = getSnapshotForDate(dateKey);
+    if (!snap || snap.size === 0) return 0;
+    const h = findHistoryForDate(dateKey);
+    if (!h || !isFinite(h.tvl)) return 0;
+    let total = 0n;
+    snap.forEach((b) => { total += b; });
+    const totalNum = bigToShares(total, state.shareDecimals);
+    if (totalNum <= 0) return 0;
+    return h.tvl / totalNum;
+  }
+
   // ─── Rendering: stats ────────────────────────────────────
 
   function renderStats(vault, historyDaily, holderCount) {
@@ -331,44 +364,64 @@
     return daily.slice(-days);
   }
 
-  function renderTvlApyChart(daily, period) {
+  function renderTvlApyChart(daily, period, chartType) {
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
     const theme = getChartTheme();
     const slice = getPeriodSlice(daily, period);
     if (state.tvlChart) state.tvlChart.destroy();
+    const isBar = chartType === 'bar';
+
+    const tvlDataset = isBar ? {
+      type: 'bar',
+      label: 'TVL',
+      data: slice.map((d) => d.tvl),
+      backgroundColor: hexToRgba(theme.gold, 0.85),
+      hoverBackgroundColor: theme.gold,
+      borderColor: theme.gold,
+      borderWidth: 0,
+      borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
+      borderSkipped: false,
+      barPercentage: 0.92,
+      categoryPercentage: 0.96,
+      yAxisID: 'y',
+      order: 2,
+    } : {
+      type: 'line',
+      label: 'TVL',
+      data: slice.map((d) => d.tvl),
+      borderColor: theme.gold,
+      backgroundColor: hexToRgba(theme.gold, 0.12),
+      yAxisID: 'y',
+      borderWidth: 2,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: true,
+      order: 2,
+    };
+
+    const apyDataset = {
+      type: 'line',
+      label: 'APY',
+      data: slice.map((d) => d.apy),
+      borderColor: theme.ink3,
+      backgroundColor: 'transparent',
+      yAxisID: 'y1',
+      borderWidth: 1.75,
+      borderDash: [4, 3],
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: false,
+      order: 1,
+    };
 
     const ctx = $('tvl-apy-chart').getContext('2d');
     state.tvlChart = new Chart(ctx, {
-      type: 'line',
+      type: isBar ? 'bar' : 'line',
       data: {
         labels: slice.map((d) => d.date),
-        datasets: [
-          {
-            label: 'TVL',
-            data: slice.map((d) => d.tvl),
-            borderColor: theme.gold,
-            backgroundColor: hexToRgba(theme.gold, 0.12),
-            yAxisID: 'y',
-            borderWidth: 2,
-            tension: 0.25,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            fill: true,
-          },
-          {
-            label: 'APY',
-            data: slice.map((d) => d.apy),
-            borderColor: theme.ink3,
-            backgroundColor: 'transparent',
-            yAxisID: 'y1',
-            borderWidth: 1.5,
-            borderDash: [4, 3],
-            tension: 0.25,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            fill: false,
-          },
-        ],
+        datasets: [tvlDataset, apyDataset],
       },
       options: {
         responsive: true,
@@ -399,6 +452,7 @@
           },
           y1: {
             position: 'right',
+            beginAtZero: false,
             grid: { display: false },
             border: { color: theme.line2 },
             ticks: {
@@ -443,27 +497,43 @@
     });
   }
 
-  function renderHoldersChart(dailyHolders) {
+  function renderHoldersChart(dailyHolders, chartType) {
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
     const theme = getChartTheme();
     if (state.holdersChart) state.holdersChart.destroy();
+    const isBar = chartType === 'bar';
+
+    const dataset = isBar ? {
+      type: 'bar',
+      label: 'Holders',
+      data: dailyHolders.map((d) => d.count),
+      backgroundColor: hexToRgba(theme.gold, 0.85),
+      hoverBackgroundColor: theme.gold,
+      borderColor: theme.gold,
+      borderWidth: 0,
+      borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
+      borderSkipped: false,
+      barPercentage: 0.92,
+      categoryPercentage: 0.96,
+    } : {
+      type: 'line',
+      label: 'Holders',
+      data: dailyHolders.map((d) => d.count),
+      borderColor: theme.gold,
+      backgroundColor: hexToRgba(theme.gold, 0.12),
+      borderWidth: 2,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: true,
+    };
 
     const ctx = $('holders-chart').getContext('2d');
     state.holdersChart = new Chart(ctx, {
-      type: 'line',
+      type: isBar ? 'bar' : 'line',
       data: {
         labels: dailyHolders.map((d) => d.date),
-        datasets: [{
-          label: 'Holders',
-          data: dailyHolders.map((d) => d.count),
-          borderColor: theme.gold,
-          backgroundColor: hexToRgba(theme.gold, 0.12),
-          borderWidth: 2,
-          tension: 0.25,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          fill: true,
-        }],
+        datasets: [dataset],
       },
       options: {
         responsive: true,
@@ -528,6 +598,7 @@
     const start = state.holdersPage * HOLDERS_PER_PAGE;
     const slice = holders.slice(start, start + HOLDERS_PER_PAGE);
 
+    const usdPerShare = state.usdPerShareNow;
     if (slice.length === 0) {
       $('holders-rows').innerHTML = '<div class="hub-empty">No holders yet.</div>';
     } else {
@@ -537,10 +608,12 @@
         const rank = start + i + 1;
         const pct = total > 0n ? (Number((shares * 10000n) / total) / 100).toFixed(2) : '0.00';
         const fs = state.firstSeen.get(addr);
+        const usd = usdPerShare > 0 ? fmtUsd(bigToShares(shares, state.shareDecimals) * usdPerShare) : '-';
         return ''
           + '<a class="hub-row holders-grid" href="https://basescan.org/address/' + addr + '" target="_blank" rel="noreferrer" role="row">'
           + '<span class="hub-cell hub-rank">' + rank + '</span>'
           + '<span class="hub-cell holder-addr" title="' + addr + '">' + fmtAddr(addr) + '</span>'
+          + '<span class="hub-cell hub-num">' + usd + '</span>'
           + '<span class="hub-cell hub-num">' + fmtShares(shares, state.shareDecimals) + '</span>'
           + '<span class="hub-cell hub-num">' + pct + '%</span>'
           + '<span class="hub-cell hub-num">' + fmtDate(fs) + '</span>'
@@ -575,16 +648,21 @@
     let total = 0n;
     for (let i = 0; i < holders.length; i++) total += holders[i][1];
 
-    $('snapshot-summary').textContent = fmtNumber(holders.length) + ' holders, ' + fmtShares(total, state.shareDecimals) + ' shares';
+    const usdPerShare = usdPerShareForDate(dateKey);
+    const totalUsdNum = usdPerShare > 0 ? bigToShares(total, state.shareDecimals) * usdPerShare : 0;
+    const totalUsdStr = usdPerShare > 0 ? ', ' + fmtUsd(totalUsdNum) : '';
+    $('snapshot-summary').textContent = fmtNumber(holders.length) + ' holders, ' + fmtShares(total, state.shareDecimals) + ' shares' + totalUsdStr;
 
     const rows = holders.map((row, i) => {
       const addr = row[0];
       const shares = row[1];
       const pct = total > 0n ? (Number((shares * 10000n) / total) / 100).toFixed(2) : '0.00';
+      const usd = usdPerShare > 0 ? fmtUsd(bigToShares(shares, state.shareDecimals) * usdPerShare) : '-';
       return ''
         + '<a class="hub-row holders-snapshot-grid" href="https://basescan.org/address/' + addr + '" target="_blank" rel="noreferrer" role="row">'
         + '<span class="hub-cell hub-rank">' + (i + 1) + '</span>'
         + '<span class="hub-cell holder-addr" title="' + addr + '">' + fmtAddr(addr) + '</span>'
+        + '<span class="hub-cell hub-num">' + usd + '</span>'
         + '<span class="hub-cell hub-num">' + fmtShares(shares, state.shareDecimals) + '</span>'
         + '<span class="hub-cell hub-num">' + pct + '%</span>'
         + '</a>';
@@ -598,8 +676,8 @@
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('theme', theme); } catch (e) {}
     updateThemeToggle();
-    if (state.tvlChart) renderTvlApyChart(state.historyDaily, state.currentPeriod);
-    if (state.holdersChart) renderHoldersChart(state.dailyHolderCounts);
+    if (state.tvlChart) renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+    if (state.holdersChart) renderHoldersChart(state.dailyHolderCounts, state.chartType);
   }
 
   function updateThemeToggle() {
@@ -617,15 +695,32 @@
     });
 
     $('period-toggle').addEventListener('click', (e) => {
-      const btn = e.target.closest('.period-btn');
+      const btn = e.target.closest('.pill-btn');
       if (!btn) return;
       const p = btn.getAttribute('data-period');
       state.currentPeriod = p;
-      const all = document.querySelectorAll('.period-btn');
+      const all = $('period-toggle').querySelectorAll('.pill-btn');
       for (let i = 0; i < all.length; i++) {
         all[i].classList.toggle('is-active', all[i] === btn);
       }
-      renderTvlApyChart(state.historyDaily, p);
+      renderTvlApyChart(state.historyDaily, p, state.chartType);
+    });
+
+    const viewToggles = document.querySelectorAll('.chart-type-toggle');
+    viewToggles.forEach((root) => {
+      root.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pill-btn');
+        if (!btn) return;
+        const t = btn.getAttribute('data-type');
+        if (t === state.chartType) return;
+        state.chartType = t;
+        // Keep every chart-type toggle in sync.
+        document.querySelectorAll('.chart-type-toggle .pill-btn').forEach((b) => {
+          b.classList.toggle('is-active', b.getAttribute('data-type') === t);
+        });
+        renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+        renderHoldersChart(state.dailyHolderCounts, state.chartType);
+      });
     });
 
     $('holders-prev').addEventListener('click', () => {
@@ -700,12 +795,19 @@
       state.totalShares = sumPositive(recon.balances);
       state.dailyHolderCounts = computeDailyHolderCounts(state.dailySnapshots, history);
 
+      // Compute current USD-per-share so the holders table can rank by value.
+      const latest = state.historyDaily.length > 0 ? state.historyDaily[state.historyDaily.length - 1] : null;
+      const tvlNow = (vault && vault.tvl != null) ? Number(vault.tvl) : (latest ? Number(latest.tvl) : 0);
+      const totalSharesNum = bigToShares(state.totalShares, state.shareDecimals);
+      state.currentTvl = tvlNow;
+      state.usdPerShareNow = (tvlNow > 0 && totalSharesNum > 0) ? (tvlNow / totalSharesNum) : 0;
+
       let holderCount = 0;
       recon.balances.forEach((b) => { if (b > 0n) holderCount++; });
 
       renderStats(vault, state.historyDaily, holderCount);
-      renderTvlApyChart(state.historyDaily, state.currentPeriod);
-      renderHoldersChart(state.dailyHolderCounts);
+      renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+      renderHoldersChart(state.dailyHolderCounts, state.chartType);
       renderHoldersList();
 
       const dateInput = $('snapshot-date');

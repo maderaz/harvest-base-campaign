@@ -48,8 +48,8 @@
   text-decoration-color: var(--gold);
 }
 
-/* ── Period toggle (pill-group) ────────────────────────────── */
-.period-toggle {
+/* ── Pill toggle groups (period + chart-type) ──────────────── */
+.pill-toggle {
   display: inline-flex;
   gap: 2px;
   padding: 3px;
@@ -57,7 +57,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
 }
-.period-btn {
+.pill-btn {
   padding: 5px 12px;
   background: transparent;
   border: none;
@@ -70,14 +70,23 @@
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.period-btn:hover:not(.is-active) {
+.pill-btn:hover:not(.is-active) {
   color: var(--ink);
   background: var(--tint-thin);
 }
-.period-btn.is-active {
+.pill-btn.is-active {
   background: var(--gold);
   color: var(--ink);
   font-weight: 600;
+}
+
+/* Groups of pill-toggles sit in a chart-controls flex row so they
+   wrap together when the section header runs out of width. */
+.chart-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 /* ── Chart cards ───────────────────────────────────────────── */
@@ -97,12 +106,12 @@
    style or from a class. We override per-page-table here. */
 .uni-hub-test .hub-thead.holders-grid,
 .uni-hub-test .hub-row.holders-grid {
-  grid-template-columns: 48px minmax(0, 1.6fr) 1fr 0.6fr 0.9fr;
+  grid-template-columns: 48px minmax(0, 1.3fr) 1fr 1fr 0.6fr 0.9fr;
   gap: 16px;
 }
 .uni-hub-test .hub-thead.holders-snapshot-grid,
 .uni-hub-test .hub-row.holders-snapshot-grid {
-  grid-template-columns: 48px minmax(0, 1.8fr) 1fr 0.6fr;
+  grid-template-columns: 48px minmax(0, 1.5fr) 1fr 1fr 0.6fr;
   gap: 16px;
 }
 

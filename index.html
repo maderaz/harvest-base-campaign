@@ -74,11 +74,17 @@
     <section class="uni-hub-section">
       <header class="uni-hub-section-head">
         <h2 class="uni-hub-section-title">TVL and APY</h2>
-        <div class="period-toggle" id="period-toggle" role="tablist" aria-label="Period">
-          <button class="period-btn" type="button" data-period="7D">7D</button>
-          <button class="period-btn" type="button" data-period="30D">30D</button>
-          <button class="period-btn" type="button" data-period="90D">90D</button>
-          <button class="period-btn is-active" type="button" data-period="ALL">All</button>
+        <div class="chart-controls">
+          <div class="pill-toggle chart-type-toggle" role="tablist" aria-label="Chart type">
+            <button class="pill-btn is-active" type="button" data-type="bar">Bar</button>
+            <button class="pill-btn" type="button" data-type="line">Line</button>
+          </div>
+          <div class="pill-toggle" id="period-toggle" role="tablist" aria-label="Period">
+            <button class="pill-btn" type="button" data-period="7D">7D</button>
+            <button class="pill-btn" type="button" data-period="30D">30D</button>
+            <button class="pill-btn" type="button" data-period="90D">90D</button>
+            <button class="pill-btn is-active" type="button" data-period="ALL">All</button>
+          </div>
         </div>
       </header>
       <div class="card-surface chart-card">
@@ -91,7 +97,13 @@
     <section class="uni-hub-section">
       <header class="uni-hub-section-head">
         <h2 class="uni-hub-section-title">Holders over time</h2>
-        <span class="uni-hub-section-meta">Daily count</span>
+        <div class="chart-controls">
+          <span class="uni-hub-section-meta">Daily count</span>
+          <div class="pill-toggle chart-type-toggle" role="tablist" aria-label="Chart type">
+            <button class="pill-btn is-active" type="button" data-type="bar">Bar</button>
+            <button class="pill-btn" type="button" data-type="line">Line</button>
+          </div>
+        </div>
       </header>
       <div class="card-surface chart-card">
         <div class="chart-container">
@@ -110,6 +122,7 @@
           <div class="hub-thead holders-grid" role="row">
             <span class="hub-th hub-th-rank">#</span>
             <span class="hub-th">Address</span>
+            <span class="hub-th hub-th-right">USD Value</span>
             <span class="hub-th hub-th-right">Shares</span>
             <span class="hub-th hub-th-right">% Supply</span>
             <span class="hub-th hub-th-right">First Deposit</span>
@@ -140,6 +153,7 @@
           <div class="hub-thead holders-snapshot-grid" role="row">
             <span class="hub-th hub-th-rank">#</span>
             <span class="hub-th">Address</span>
+            <span class="hub-th hub-th-right">USD Value</span>
             <span class="hub-th hub-th-right">Shares</span>
             <span class="hub-th hub-th-right">% Supply</span>
           </div>
