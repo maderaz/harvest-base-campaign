@@ -1,0 +1,61 @@
+/* ============================================================
+   Harvest design system - darkmode.css
+   The dark-theme override is just a token swap on the root. Every
+   component class in components.css reads from CSS variables, so
+   nothing component-side needs to change between themes.
+   Import after components.css.
+   ============================================================ */
+
+/* The page-shell scope override - paints background + body ink
+   correctly when the user is on dark. */
+:root[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* Pages built on the .uni-hub-test scope also flip their inner
+   surfaces. The token values are already swapped at :root level
+   (see tokens.css), so this block only handles the body bleed +
+   any scope-specific overrides. */
+:root[data-theme="dark"] .uni-hub-test {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* Ranking table inside a dark page picks up the dark --hub-*
+   tokens via the wrapper. */
+:root[data-theme="dark"] .hub-table-wrap {
+  --hub-ink:    var(--ink);
+  --hub-ink-2:  var(--ink-2);
+  --hub-ink-3:  var(--ink-3);
+  --hub-line:   var(--line);
+  --hub-line-2: var(--line-2);
+  --hub-card:   var(--card);
+  --hub-bg:     var(--bg);
+  --hub-gold:   var(--gold);
+}
+:root[data-theme="dark"] .hub-row {
+  border-bottom-color: var(--line-2);
+}
+:root[data-theme="dark"] .hub-row:hover {
+  background: rgba(255, 185, 54, 0.08);
+}
+
+/* Pill text colours that need a dark-mode lift to clear the
+   Onyx background contrast floor. */
+:root[data-theme="dark"] .pill-tinted.is-ok    { color: #6dd0a0; }
+:root[data-theme="dark"] .pill-tinted.is-warn  { color: #ff8a82; }
+:root[data-theme="dark"] .pill-tinted.is-gold  { color: #ffd98a; }
+
+/* Primary CTA shadow is too faint on dark - bump alpha so the
+   gold glow still reads. */
+:root[data-theme="dark"] .cta-primary {
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 8px 22px -8px rgba(255, 185, 54, 0.45);
+}
+:root[data-theme="dark"] .cta-primary:hover {
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.4),
+    0 10px 26px -8px rgba(255, 185, 54, 0.60);
+}
