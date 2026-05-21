@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WETH Autopilot Vault Dashboard - Base</title>
+  <meta name="description" content="TVL, APY, and holder data for the Harvest WETH Autopilot vault on Base." />
+
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('theme');
+        var t = s === 'dark' || s === 'light'
+          ? s
+          : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --font-inter: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-inter-tight: 'Inter Tight', 'Inter', system-ui, sans-serif;
+      --font-jetbrains-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    }
+  </style>
+
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./components.css">
+  <link rel="stylesheet" href="./darkmode.css">
+  <link rel="stylesheet" href="./dashboard.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="./dashboard.js" defer></script>
+</head>
+<body>
+  <div class="uni-hub-test">
+
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">Dark</button>
+
+    <header class="uni-hub-hero">
+      <div class="uni-hub-hero-headline">
+        <h1 class="uni-hub-h1">WETH Autopilot - Base</h1>
+        <p class="uni-hub-sub">
+          Daily TVL, APY, and holder data for the Harvest plasma vault
+          <a id="vault-link" class="vault-link mono" href="#" target="_blank" rel="noreferrer">0x7872...aa97</a>.
+        </p>
+      </div>
+      <div class="uni-hub-stats" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="uni-hub-stat">
+          <div class="uni-hub-stat-label">Current TVL</div>
+          <div class="uni-hub-stat-value" id="stat-tvl">-</div>
+        </div>
+        <div class="uni-hub-stat">
+          <div class="uni-hub-stat-label">APY</div>
+          <div class="uni-hub-stat-value" id="stat-apy">-</div>
+        </div>
+        <div class="uni-hub-stat">
+          <div class="uni-hub-stat-label">Holders</div>
+          <div class="uni-hub-stat-value" id="stat-holders">-</div>
+        </div>
+        <div class="uni-hub-stat">
+          <div class="uni-hub-stat-label">Share Price</div>
+          <div class="uni-hub-stat-value" id="stat-share">-</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="uni-hub-section">
+      <header class="uni-hub-section-head">
+        <h2 class="uni-hub-section-title">TVL and APY</h2>
+        <div class="period-toggle" id="period-toggle" role="tablist" aria-label="Period">
+          <button class="period-btn" type="button" data-period="7D">7D</button>
+          <button class="period-btn" type="button" data-period="30D">30D</button>
+          <button class="period-btn" type="button" data-period="90D">90D</button>
+          <button class="period-btn is-active" type="button" data-period="ALL">All</button>
+        </div>
+      </header>
+      <div class="card-surface chart-card">
+        <div class="chart-container">
+          <canvas id="tvl-apy-chart" aria-label="TVL and APY over time"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="uni-hub-section">
+      <header class="uni-hub-section-head">
+        <h2 class="uni-hub-section-title">Holders over time</h2>
+        <span class="uni-hub-section-meta">Daily count</span>
+      </header>
+      <div class="card-surface chart-card">
+        <div class="chart-container">
+          <canvas id="holders-chart" aria-label="Holders over time"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="uni-hub-section">
+      <header class="uni-hub-section-head">
+        <h2 class="uni-hub-section-title">Current holders</h2>
+        <span class="uni-hub-section-meta" id="holders-count">-</span>
+      </header>
+      <div class="hub-table-wrap">
+        <div class="hub-table" id="holders-table" role="table">
+          <div class="hub-thead holders-grid" role="row">
+            <span class="hub-th hub-th-rank">#</span>
+            <span class="hub-th">Address</span>
+            <span class="hub-th hub-th-right">Shares</span>
+            <span class="hub-th hub-th-right">% Supply</span>
+            <span class="hub-th hub-th-right">First Deposit</span>
+          </div>
+          <div id="holders-rows">
+            <div class="hub-empty">Loading holders...</div>
+          </div>
+        </div>
+      </div>
+      <div class="holders-pagination" id="holders-pagination" hidden>
+        <button class="pagination-btn" id="holders-prev" type="button">Previous</button>
+        <span class="pagination-info" id="holders-info">-</span>
+        <button class="pagination-btn" id="holders-next" type="button">Next</button>
+      </div>
+    </section>
+
+    <section class="uni-hub-section">
+      <header class="uni-hub-section-head">
+        <h2 class="uni-hub-section-title">Holders snapshot</h2>
+        <div class="snapshot-controls">
+          <label for="snapshot-date" class="snapshot-label">Date</label>
+          <input type="date" id="snapshot-date" class="snapshot-date" />
+          <span class="pill-tinted is-muted" id="snapshot-summary">- holders</span>
+        </div>
+      </header>
+      <div class="hub-table-wrap">
+        <div class="hub-table" role="table">
+          <div class="hub-thead holders-snapshot-grid" role="row">
+            <span class="hub-th hub-th-rank">#</span>
+            <span class="hub-th">Address</span>
+            <span class="hub-th hub-th-right">Shares</span>
+            <span class="hub-th hub-th-right">% Supply</span>
+          </div>
+          <div id="snapshot-rows">
+            <div class="hub-empty">Loading snapshot...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="uni-hub-section footer-section">
+      <div class="note">
+        <h3 class="note-title">Data source</h3>
+        <p class="note-body">
+          Data is fetched live from the Harvest Finance plasma-vault subgraph
+          via <span class="mono">/8453</span> (Base). TVL, APY, and share
+          price come from <span class="mono">plasmaVaultHistories</span>,
+          paginated by timestamp. The holders list and per-day snapshot are
+          derived from <span class="mono">userTransactions</span> (deposit
+          and withdraw events). Share-to-share ERC-20 transfers between users
+          are not tracked here, so the holder count reflects addresses that
+          have interacted with the vault directly.
+        </p>
+      </div>
+    </footer>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,215 @@
+/* ============================================================
+   Vault dashboard - page-specific styles.
+   Layer above tokens.css / components.css / darkmode.css.
+   Only adds rules the design system doesn't cover: chart card
+   geometry, holders-table grid columns, snapshot controls, the
+   period toggle pill-group, and the theme-toggle button.
+   Every colour reads from a --var; no raw hex.
+   ============================================================ */
+
+.uni-hub-test { position: relative; }
+
+/* ── Theme toggle (top-right) ──────────────────────────────── */
+.theme-toggle {
+  position: absolute;
+  top: 24px;
+  right: var(--shell-pad);
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  z-index: 5;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.theme-toggle:hover {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--ink-3);
+}
+
+/* ── Hero tweaks ───────────────────────────────────────────── */
+.uni-hub-test .uni-hub-hero-headline { min-width: 0; }
+.uni-hub-test .vault-link {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+}
+.uni-hub-test .vault-link:hover {
+  color: var(--ink);
+  text-decoration-color: var(--gold);
+}
+
+/* ── Period toggle (pill-group) ────────────────────────────── */
+.period-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+.period-btn {
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.period-btn:hover:not(.is-active) {
+  color: var(--ink);
+  background: var(--tint-thin);
+}
+.period-btn.is-active {
+  background: var(--gold);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ── Chart cards ───────────────────────────────────────────── */
+.chart-card { padding: 18px 20px; }
+.chart-container {
+  position: relative;
+  height: 340px;
+  width: 100%;
+}
+@media (max-width: 768px) {
+  .chart-card { padding: 14px 14px; }
+  .chart-container { height: 240px; }
+}
+
+/* ── Hub-table grid overrides ──────────────────────────────── */
+/* Each `.hub-row` reads `grid-template-columns` either from inline
+   style or from a class. We override per-page-table here. */
+.uni-hub-test .hub-thead.holders-grid,
+.uni-hub-test .hub-row.holders-grid {
+  grid-template-columns: 48px minmax(0, 1.6fr) 1fr 0.6fr 0.9fr;
+  gap: 16px;
+}
+.uni-hub-test .hub-thead.holders-snapshot-grid,
+.uni-hub-test .hub-row.holders-snapshot-grid {
+  grid-template-columns: 48px minmax(0, 1.8fr) 1fr 0.6fr;
+  gap: 16px;
+}
+
+.holder-addr {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hub-row when it's an <a>: keep colour and add underline-on-hover */
+.uni-hub-test a.hub-row { color: var(--ink); }
+.uni-hub-test a.hub-row:hover .holder-addr { color: var(--ink); }
+
+/* ── Holders pagination ────────────────────────────────────── */
+.holders-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 0 4px;
+}
+.pagination-btn {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.pagination-btn:hover:not(:disabled) {
+  background: var(--card);
+  color: var(--ink);
+}
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.pagination-info {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+
+/* ── Snapshot controls ─────────────────────────────────────── */
+.snapshot-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.snapshot-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  text-transform: uppercase;
+}
+.snapshot-date {
+  padding: 6px 12px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+.snapshot-date:hover { border-color: var(--ink-3); }
+.snapshot-date:focus { border-color: var(--gold); }
+.snapshot-date::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+}
+:root[data-theme="dark"] .snapshot-date::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+}
+
+/* ── Footer note ───────────────────────────────────────────── */
+.footer-section { margin-top: 64px; }
+
+/* ── Mobile shell ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .uni-hub-test .uni-hub-hero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+@media (max-width: 540px) {
+  .theme-toggle { top: 16px; padding: 4px 11px; font-size: 11.5px; }
+  .uni-hub-test .uni-hub-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .uni-hub-test .uni-hub-section-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .snapshot-controls { width: 100%; }
+}
