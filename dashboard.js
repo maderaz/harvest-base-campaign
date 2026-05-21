@@ -15,6 +15,10 @@
   const PAGE_SIZE = 1000;
   const HOLDERS_PER_PAGE = 20;
   const EXPLORER = 'https://basescan.org/address/' + VAULT;
+  // Annotation drawn as a solid blue vertical line on both charts.
+  // Treat this as a placeholder until a real start date is provided.
+  const BASE_INCENTIVES_START = '2026-04-15';
+  const BASE_BLUE = '#0052ff';
 
   // ─── State ───────────────────────────────────────────────
   const state = {
@@ -37,6 +41,8 @@
     underlyingSymbol: 'WETH',
     usdPerShareNow: 0,
     currentTvl: 0,
+    lastUpdated: 0,
+    cacheStatusTimer: null,
   };
 
   // ─── Tiny DOM helper ─────────────────────────────────────
@@ -91,6 +97,28 @@
   }
   function todayKey() {
     return new Date().toISOString().slice(0, 10);
+  }
+  function fmtFullDate(dateKey) {
+    // dateKey is YYYY-MM-DD. Return "April 15, 2026".
+    if (!dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return dateKey || '-';
+    const d = new Date(dateKey + 'T00:00:00Z');
+    if (isNaN(d.getTime())) return dateKey;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+  function formatRelativeTime(ts) {
+    if (!ts) return '';
+    const ms = Date.now() - ts;
+    if (ms < 0) return 'just now';
+    const sec = Math.floor(ms / 1000);
+    if (sec < 10) return 'just now';
+    if (sec < 60) return sec + 's ago';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + 'm ago';
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return hr + 'h ago';
+    const day = Math.floor(hr / 24);
+    if (day < 30) return day + 'd ago';
+    return Math.floor(day / 30) + 'mo ago';
   }
 
   // ─── Local cache (localStorage) ──────────────────────────
@@ -160,8 +188,18 @@
     if (!text) { el.hidden = true; return; }
     el.hidden = false;
     el.textContent = text;
-    const variant = kind === 'warn' ? 'is-warn' : (kind === 'gold' ? 'is-gold' : 'is-muted');
+    const variant =
+      kind === 'warn' ? 'is-warn' :
+      kind === 'gold' ? 'is-gold' :
+      kind === 'ok' ? 'is-ok' : 'is-muted';
     el.className = 'cache-status pill-tinted ' + variant;
+  }
+
+  // Re-render the "Updated Xm ago" badge from state.lastUpdated.
+  // Called on a timer so the text stays accurate as time passes.
+  function refreshCacheStatusTick() {
+    if (!state.lastUpdated) return;
+    setCacheStatus('Updated ' + formatRelativeTime(state.lastUpdated), 'ok');
   }
 
   // ─── GraphQL ─────────────────────────────────────────────
@@ -441,6 +479,74 @@
     const s = String(v == null ? '' : v);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
+  // ─── Chart annotation: vertical line + label ─────────────
+  // Draw a solid colored vertical line at the data point matching
+  // `date` (YYYY-MM-DD) on a Chart.js category x-axis. Registered
+  // once globally; per-chart config sits at options.plugins.vline.
+  let _vlineRegistered = false;
+  function ensureVerticalLinePlugin() {
+    if (_vlineRegistered || typeof Chart === 'undefined') return;
+    Chart.register({
+      id: 'vline',
+      afterDatasetsDraw(chart) {
+        const opts = chart.options.plugins && chart.options.plugins.vline;
+        if (!opts || !opts.date) return;
+        const labels = chart.data.labels || [];
+        const idx = labels.indexOf(opts.date);
+        if (idx === -1) return;
+        const xScale = chart.scales.x;
+        if (!xScale) return;
+        const x = xScale.getPixelForValue(idx);
+        const top = chart.chartArea.top;
+        const bottom = chart.chartArea.bottom;
+        const color = opts.color || '#0052ff';
+        const c = chart.ctx;
+        c.save();
+        c.strokeStyle = color;
+        c.lineWidth = 2;
+        c.beginPath();
+        c.moveTo(x, top);
+        c.lineTo(x, bottom);
+        c.stroke();
+        if (opts.label) {
+          const label = opts.label;
+          c.font = '600 11px "Inter", sans-serif';
+          c.textBaseline = 'top';
+          const textWidth = c.measureText(label).width;
+          // Decide which side of the line the label sits on so it
+          // doesn't run off the right edge of the plot area.
+          const padX = 7;
+          const padY = 5;
+          const labelRight = x + 8 + textWidth + padX * 2;
+          const drawLeft = labelRight > chart.chartArea.right;
+          const boxX = drawLeft ? (x - 8 - textWidth - padX * 2) : (x + 8);
+          const boxY = top + 6;
+          const boxW = textWidth + padX * 2;
+          const boxH = 18 + padY;
+          // Filled tag
+          c.fillStyle = color;
+          const r = 4;
+          c.beginPath();
+          c.moveTo(boxX + r, boxY);
+          c.lineTo(boxX + boxW - r, boxY);
+          c.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
+          c.lineTo(boxX + boxW, boxY + boxH - r);
+          c.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
+          c.lineTo(boxX + r, boxY + boxH);
+          c.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
+          c.lineTo(boxX, boxY + r);
+          c.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+          c.closePath();
+          c.fill();
+          c.fillStyle = '#ffffff';
+          c.fillText(label, boxX + padX, boxY + padY + 1);
+        }
+        c.restore();
+      },
+    });
+    _vlineRegistered = true;
+  }
+
   function downloadCsv(filename, rows) {
     if (!rows || rows.length === 0) return;
     const csv = rows.map((r) => r.map(csvCell).join(',')).join('\n');
@@ -471,6 +577,7 @@
 
   function renderTvlApyChart(daily, period, chartType) {
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    ensureVerticalLinePlugin();
     const theme = getChartTheme();
     const slice = getPeriodSlice(daily, period);
     if (state.tvlChart) state.tvlChart.destroy();
@@ -572,6 +679,7 @@
         },
         plugins: {
           legend: { display: false },
+          vline: { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
           tooltip: {
             backgroundColor: theme.ink,
             titleColor: theme.bg,
@@ -595,6 +703,7 @@
 
   function renderHoldersChart(dailyHolders, chartType) {
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
+    ensureVerticalLinePlugin();
     const theme = getChartTheme();
     if (state.holdersChart) state.holdersChart.destroy();
     const isBar = chartType === 'bar';
@@ -661,6 +770,7 @@
         },
         plugins: {
           legend: { display: false },
+          vline: { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
           tooltip: {
             backgroundColor: theme.ink,
             titleColor: theme.bg,
@@ -1012,8 +1122,10 @@
   async function init() {
     updateThemeToggle();
     setupEvents();
-    $('vault-link').textContent = fmtAddr(VAULT);
+    $('vault-link').textContent = VAULT;
     $('vault-link').href = EXPLORER;
+    const incEl = $('incentives-date');
+    if (incEl) incEl.textContent = fmtFullDate(BASE_INCENTIVES_START);
 
     // Step 1 - hydrate from cache if we have one. This paints the
     // page within a few ms, so a returning visitor doesn't sit on
@@ -1025,9 +1137,13 @@
         applyData(cache.meta, cache.history, cache.txs);
         renderAll();
         renderedFromCache = true;
-        const ageMin = Math.round((Date.now() - cache.updated) / 60000);
-        const ageLabel = ageMin < 1 ? 'just now' : (ageMin < 60 ? ageMin + 'm ago' : Math.round(ageMin / 60) + 'h ago');
-        setCacheStatus('Cached, ' + ageLabel + ' - updating...', 'gold');
+        // Show the live "Updated Nm ago" pill right away, using the
+        // timestamp from cache. It will get updated again after the
+        // delta-fetch lands.
+        if (cache.updated) {
+          state.lastUpdated = cache.updated;
+          refreshCacheStatusTick();
+        }
       } catch (e) {
         console.warn('Cache render failed:', e);
         renderedFromCache = false;
@@ -1060,12 +1176,11 @@
 
       writeCache({ meta: vault, history: fullHistory, txs: fullTxs, userField: userField });
 
-      if (renderedFromCache) {
-        const added = newHistory.length + newTxs.length;
-        const msg = added > 0 ? ('Updated, +' + added + ' new record' + (added === 1 ? '' : 's')) : 'Up to date';
-        setCacheStatus(msg, 'gold');
-        setTimeout(() => setCacheStatus(null), 2500);
-      }
+      state.lastUpdated = Date.now();
+      refreshCacheStatusTick();
+      // Live ticker so "1m ago" becomes "2m ago" etc. without a reload.
+      if (state.cacheStatusTimer) clearInterval(state.cacheStatusTimer);
+      state.cacheStatusTimer = setInterval(refreshCacheStatusTick, 30000);
     } catch (e) {
       console.error('Dashboard load error:', e);
       if (renderedFromCache) {
