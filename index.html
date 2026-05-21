@@ -41,9 +41,17 @@
 <body>
   <div class="uni-hub-test">
 
-    <div class="page-actions">
-      <span id="cache-status" class="cache-status pill-tinted is-muted" hidden></span>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">Dark</button>
+    <div class="app-bar">
+      <div class="brand">
+        <div class="brand-title">Harvest Dashboard</div>
+        <div class="brand-sub">
+          <span class="base-icon" aria-hidden="true"></span>Base Season
+        </div>
+      </div>
+      <div class="page-actions">
+        <span id="cache-status" class="cache-status pill-tinted is-muted" hidden></span>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle theme">Dark</button>
+      </div>
     </div>
 
     <header class="uni-hub-hero">
@@ -91,6 +99,26 @@
         </div>
       </header>
       <div class="card-surface chart-card">
+        <div class="chart-toolbar">
+          <div class="chart-legend" aria-hidden="true">
+            <span class="legend-item">
+              <span class="legend-swatch is-bar" style="background: var(--gold);"></span>
+              TVL
+            </span>
+            <span class="legend-item">
+              <span class="legend-swatch is-line-dashed" style="border-top-color: var(--apy);"></span>
+              APY
+            </span>
+          </div>
+          <button class="chart-action" id="download-tvl-csv" type="button" title="Download CSV">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            CSV
+          </button>
+        </div>
         <div class="chart-container">
           <canvas id="tvl-apy-chart" aria-label="TVL and APY over time"></canvas>
         </div>
@@ -109,6 +137,22 @@
         </div>
       </header>
       <div class="card-surface chart-card">
+        <div class="chart-toolbar">
+          <div class="chart-legend" aria-hidden="true">
+            <span class="legend-item">
+              <span class="legend-swatch is-bar" style="background: var(--gold);"></span>
+              Holders
+            </span>
+          </div>
+          <button class="chart-action" id="download-holders-csv" type="button" title="Download CSV">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            CSV
+          </button>
+        </div>
         <div class="chart-container">
           <canvas id="holders-chart" aria-label="Holders over time"></canvas>
         </div>
@@ -130,6 +174,20 @@
           </h2>
           <span class="uni-hub-section-meta" id="holders-count">-</span>
         </header>
+        <div class="ranking-stats">
+          <div class="ranking-stat">
+            <div class="ranking-stat-label">Holders</div>
+            <div class="ranking-stat-value" id="rstat-current-holders">-</div>
+          </div>
+          <div class="ranking-stat">
+            <div class="ranking-stat-label">Total Value</div>
+            <div class="ranking-stat-value" id="rstat-current-value">-</div>
+          </div>
+          <div class="ranking-stat">
+            <div class="ranking-stat-label">Top Holder</div>
+            <div class="ranking-stat-value" id="rstat-current-top">-</div>
+          </div>
+        </div>
         <div class="hub-table-wrap">
           <div class="hub-table" id="holders-table" role="table">
             <div class="hub-thead holders-grid" role="row">
@@ -169,8 +227,19 @@
             <input type="date" id="snapshot-date" class="snapshot-date" />
           </div>
         </header>
-        <div class="snapshot-summary-row">
-          <span class="pill-tinted is-muted" id="snapshot-summary">- holders</span>
+        <div class="ranking-stats">
+          <div class="ranking-stat">
+            <div class="ranking-stat-label">Holders</div>
+            <div class="ranking-stat-value" id="rstat-snapshot-holders">-</div>
+          </div>
+          <div class="ranking-stat">
+            <div class="ranking-stat-label">Total Value</div>
+            <div class="ranking-stat-value" id="rstat-snapshot-value">-</div>
+          </div>
+          <div class="ranking-stat">
+            <div class="ranking-stat-label">Top Holder</div>
+            <div class="ranking-stat-value" id="rstat-snapshot-top">-</div>
+          </div>
         </div>
         <div class="hub-table-wrap">
           <div class="hub-table" role="table">
