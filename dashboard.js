@@ -31,8 +31,11 @@
     tvlChart: null,
     holdersChart: null,
     currentPeriod: 'ALL',
+    chartType: 'bar',
     shareDecimals: 18,
     underlyingSymbol: 'WETH',
+    usdPerShareNow: 0,
+    currentTvl: 0,
   };
 
   // ─── Tiny DOM helper ─────────────────────────────────────
@@ -73,7 +76,7 @@
   }
   function fmtDate(timestamp) {
     if (!timestamp) return '-';
-    return new Date(timestamp * 1000).toLocaleDateString(undefined, {
+    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric',
     });
   }
@@ -87,6 +90,77 @@
   }
   function todayKey() {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  // ─── Local cache (localStorage) ──────────────────────────
+  // Cache the raw history + tx records so a returning visitor sees
+  // the dashboard immediately. Background fetch pulls only records
+  // newer than the cached max-timestamp (delta sync), then merges
+  // and writes back. Bump CACHE_VERSION to invalidate everything if
+  // the cached shape ever changes.
+  const CACHE_VERSION = 1;
+  const CACHE_KEYS = {
+    schema: 'harvest:v',
+    meta: 'harvest:meta:' + VAULT,
+    history: 'harvest:history:' + VAULT,
+    txs: 'harvest:txs:' + VAULT,
+    userField: 'harvest:userField:' + VAULT,
+    updated: 'harvest:updated:' + VAULT,
+  };
+
+  function clearCache() {
+    try {
+      Object.keys(CACHE_KEYS).forEach((k) => localStorage.removeItem(CACHE_KEYS[k]));
+    } catch (e) {}
+  }
+
+  function readCache() {
+    try {
+      const v = localStorage.getItem(CACHE_KEYS.schema);
+      if (v !== String(CACHE_VERSION)) { clearCache(); return null; }
+      const history = JSON.parse(localStorage.getItem(CACHE_KEYS.history) || '[]');
+      const txs = JSON.parse(localStorage.getItem(CACHE_KEYS.txs) || '[]');
+      const meta = JSON.parse(localStorage.getItem(CACHE_KEYS.meta) || 'null');
+      const userField = localStorage.getItem(CACHE_KEYS.userField) || null;
+      const updated = Number(localStorage.getItem(CACHE_KEYS.updated) || 0);
+      return { history, txs, meta, userField, updated };
+    } catch (e) {
+      console.warn('Cache read failed:', e);
+      return null;
+    }
+  }
+
+  function writeCache(parts) {
+    try {
+      localStorage.setItem(CACHE_KEYS.schema, String(CACHE_VERSION));
+      if (parts.meta !== undefined) localStorage.setItem(CACHE_KEYS.meta, JSON.stringify(parts.meta));
+      if (parts.history) localStorage.setItem(CACHE_KEYS.history, JSON.stringify(parts.history));
+      if (parts.txs) localStorage.setItem(CACHE_KEYS.txs, JSON.stringify(parts.txs));
+      if (parts.userField) localStorage.setItem(CACHE_KEYS.userField, parts.userField);
+      localStorage.setItem(CACHE_KEYS.updated, String(Date.now()));
+    } catch (e) {
+      // QuotaExceededError or private-mode storage block. Not fatal.
+      console.warn('Cache write failed:', e);
+    }
+  }
+
+  function maxTimestamp(arr) {
+    let m = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const t = Number(arr[i].timestamp);
+      if (t > m) m = t;
+    }
+    return m;
+  }
+
+  function setCacheStatus(text, kind) {
+    const el = $('cache-status');
+    if (!el) return;
+    if (!text) { el.hidden = true; return; }
+    el.hidden = false;
+    el.textContent = text;
+    const variant = kind === 'warn' ? 'is-warn' : (kind === 'gold' ? 'is-gold' : 'is-muted');
+    el.className = 'cache-status pill-tinted ' + variant;
   }
 
   // ─── GraphQL ─────────────────────────────────────────────
@@ -122,9 +196,9 @@
     }
   }
 
-  async function loadHistory() {
+  async function loadHistory(sinceTs) {
     const out = [];
-    let lastTs = 0;
+    let lastTs = Number(sinceTs) || 0;
     while (true) {
       const q = '{ plasmaVaultHistories(where: { plasmaVault_: { id: "' + VAULT + '" }, timestamp_gt: "' + lastTs + '" } orderBy: timestamp orderDirection: asc first: ' + PAGE_SIZE + ') { timestamp tvl sharePrice apy } }';
       const d = await gql(q);
@@ -160,9 +234,9 @@
     }
   }
 
-  async function loadTransactions(userField) {
+  async function loadTransactions(userField, sinceTs) {
     const out = [];
-    let lastTs = 0;
+    let lastTs = Number(sinceTs) || 0;
     while (true) {
       const q = '{ userTransactions(where: { plasmaVault_: { id: "' + VAULT + '" }, timestamp_gt: "' + lastTs + '" } orderBy: timestamp orderDirection: asc first: ' + PAGE_SIZE + ') { timestamp value transactionType ' + userField + ' } }';
       const d = await gql(q);
@@ -288,6 +362,36 @@
     return t;
   }
 
+  function bigToShares(big, decimals) {
+    const d = decimals == null ? 18 : decimals;
+    return Number(big) / Math.pow(10, d);
+  }
+
+  // Find the most recent historyDaily entry on-or-before the given day.
+  function findHistoryForDate(dateKey) {
+    const arr = state.historyDaily;
+    let result = null;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].date <= dateKey) result = arr[i];
+      else break;
+    }
+    return result;
+  }
+
+  // USD value of a single share unit (already accounting for token decimals).
+  // Returns 0 when we can't derive it (no TVL, no shares).
+  function usdPerShareForDate(dateKey) {
+    const snap = getSnapshotForDate(dateKey);
+    if (!snap || snap.size === 0) return 0;
+    const h = findHistoryForDate(dateKey);
+    if (!h || !isFinite(h.tvl)) return 0;
+    let total = 0n;
+    snap.forEach((b) => { total += b; });
+    const totalNum = bigToShares(total, state.shareDecimals);
+    if (totalNum <= 0) return 0;
+    return h.tvl / totalNum;
+  }
+
   // ─── Rendering: stats ────────────────────────────────────
 
   function renderStats(vault, historyDaily, holderCount) {
@@ -331,44 +435,64 @@
     return daily.slice(-days);
   }
 
-  function renderTvlApyChart(daily, period) {
+  function renderTvlApyChart(daily, period, chartType) {
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
     const theme = getChartTheme();
     const slice = getPeriodSlice(daily, period);
     if (state.tvlChart) state.tvlChart.destroy();
+    const isBar = chartType === 'bar';
+
+    const tvlDataset = isBar ? {
+      type: 'bar',
+      label: 'TVL',
+      data: slice.map((d) => d.tvl),
+      backgroundColor: hexToRgba(theme.gold, 0.85),
+      hoverBackgroundColor: theme.gold,
+      borderColor: theme.gold,
+      borderWidth: 0,
+      borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
+      borderSkipped: false,
+      barPercentage: 0.92,
+      categoryPercentage: 0.96,
+      yAxisID: 'y',
+      order: 2,
+    } : {
+      type: 'line',
+      label: 'TVL',
+      data: slice.map((d) => d.tvl),
+      borderColor: theme.gold,
+      backgroundColor: hexToRgba(theme.gold, 0.12),
+      yAxisID: 'y',
+      borderWidth: 2,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: true,
+      order: 2,
+    };
+
+    const apyDataset = {
+      type: 'line',
+      label: 'APY',
+      data: slice.map((d) => d.apy),
+      borderColor: theme.ink3,
+      backgroundColor: 'transparent',
+      yAxisID: 'y1',
+      borderWidth: 1.75,
+      borderDash: [4, 3],
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: false,
+      order: 1,
+    };
 
     const ctx = $('tvl-apy-chart').getContext('2d');
     state.tvlChart = new Chart(ctx, {
-      type: 'line',
+      type: isBar ? 'bar' : 'line',
       data: {
         labels: slice.map((d) => d.date),
-        datasets: [
-          {
-            label: 'TVL',
-            data: slice.map((d) => d.tvl),
-            borderColor: theme.gold,
-            backgroundColor: hexToRgba(theme.gold, 0.12),
-            yAxisID: 'y',
-            borderWidth: 2,
-            tension: 0.25,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            fill: true,
-          },
-          {
-            label: 'APY',
-            data: slice.map((d) => d.apy),
-            borderColor: theme.ink3,
-            backgroundColor: 'transparent',
-            yAxisID: 'y1',
-            borderWidth: 1.5,
-            borderDash: [4, 3],
-            tension: 0.25,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            fill: false,
-          },
-        ],
+        datasets: [tvlDataset, apyDataset],
       },
       options: {
         responsive: true,
@@ -399,6 +523,7 @@
           },
           y1: {
             position: 'right',
+            beginAtZero: false,
             grid: { display: false },
             border: { color: theme.line2 },
             ticks: {
@@ -443,27 +568,43 @@
     });
   }
 
-  function renderHoldersChart(dailyHolders) {
+  function renderHoldersChart(dailyHolders, chartType) {
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
     const theme = getChartTheme();
     if (state.holdersChart) state.holdersChart.destroy();
+    const isBar = chartType === 'bar';
+
+    const dataset = isBar ? {
+      type: 'bar',
+      label: 'Holders',
+      data: dailyHolders.map((d) => d.count),
+      backgroundColor: hexToRgba(theme.gold, 0.85),
+      hoverBackgroundColor: theme.gold,
+      borderColor: theme.gold,
+      borderWidth: 0,
+      borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
+      borderSkipped: false,
+      barPercentage: 0.92,
+      categoryPercentage: 0.96,
+    } : {
+      type: 'line',
+      label: 'Holders',
+      data: dailyHolders.map((d) => d.count),
+      borderColor: theme.gold,
+      backgroundColor: hexToRgba(theme.gold, 0.12),
+      borderWidth: 2,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: true,
+    };
 
     const ctx = $('holders-chart').getContext('2d');
     state.holdersChart = new Chart(ctx, {
-      type: 'line',
+      type: isBar ? 'bar' : 'line',
       data: {
         labels: dailyHolders.map((d) => d.date),
-        datasets: [{
-          label: 'Holders',
-          data: dailyHolders.map((d) => d.count),
-          borderColor: theme.gold,
-          backgroundColor: hexToRgba(theme.gold, 0.12),
-          borderWidth: 2,
-          tension: 0.25,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          fill: true,
-        }],
+        datasets: [dataset],
       },
       options: {
         responsive: true,
@@ -528,6 +669,7 @@
     const start = state.holdersPage * HOLDERS_PER_PAGE;
     const slice = holders.slice(start, start + HOLDERS_PER_PAGE);
 
+    const usdPerShare = state.usdPerShareNow;
     if (slice.length === 0) {
       $('holders-rows').innerHTML = '<div class="hub-empty">No holders yet.</div>';
     } else {
@@ -537,10 +679,12 @@
         const rank = start + i + 1;
         const pct = total > 0n ? (Number((shares * 10000n) / total) / 100).toFixed(2) : '0.00';
         const fs = state.firstSeen.get(addr);
+        const usd = usdPerShare > 0 ? fmtUsd(bigToShares(shares, state.shareDecimals) * usdPerShare) : '-';
         return ''
           + '<a class="hub-row holders-grid" href="https://basescan.org/address/' + addr + '" target="_blank" rel="noreferrer" role="row">'
           + '<span class="hub-cell hub-rank">' + rank + '</span>'
           + '<span class="hub-cell holder-addr" title="' + addr + '">' + fmtAddr(addr) + '</span>'
+          + '<span class="hub-cell hub-num">' + usd + '</span>'
           + '<span class="hub-cell hub-num">' + fmtShares(shares, state.shareDecimals) + '</span>'
           + '<span class="hub-cell hub-num">' + pct + '%</span>'
           + '<span class="hub-cell hub-num">' + fmtDate(fs) + '</span>'
@@ -575,16 +719,21 @@
     let total = 0n;
     for (let i = 0; i < holders.length; i++) total += holders[i][1];
 
-    $('snapshot-summary').textContent = fmtNumber(holders.length) + ' holders, ' + fmtShares(total, state.shareDecimals) + ' shares';
+    const usdPerShare = usdPerShareForDate(dateKey);
+    const totalUsdNum = usdPerShare > 0 ? bigToShares(total, state.shareDecimals) * usdPerShare : 0;
+    const totalUsdStr = usdPerShare > 0 ? ', ' + fmtUsd(totalUsdNum) : '';
+    $('snapshot-summary').textContent = fmtNumber(holders.length) + ' holders, ' + fmtShares(total, state.shareDecimals) + ' shares' + totalUsdStr;
 
     const rows = holders.map((row, i) => {
       const addr = row[0];
       const shares = row[1];
       const pct = total > 0n ? (Number((shares * 10000n) / total) / 100).toFixed(2) : '0.00';
+      const usd = usdPerShare > 0 ? fmtUsd(bigToShares(shares, state.shareDecimals) * usdPerShare) : '-';
       return ''
         + '<a class="hub-row holders-snapshot-grid" href="https://basescan.org/address/' + addr + '" target="_blank" rel="noreferrer" role="row">'
         + '<span class="hub-cell hub-rank">' + (i + 1) + '</span>'
         + '<span class="hub-cell holder-addr" title="' + addr + '">' + fmtAddr(addr) + '</span>'
+        + '<span class="hub-cell hub-num">' + usd + '</span>'
         + '<span class="hub-cell hub-num">' + fmtShares(shares, state.shareDecimals) + '</span>'
         + '<span class="hub-cell hub-num">' + pct + '%</span>'
         + '</a>';
@@ -598,8 +747,8 @@
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('theme', theme); } catch (e) {}
     updateThemeToggle();
-    if (state.tvlChart) renderTvlApyChart(state.historyDaily, state.currentPeriod);
-    if (state.holdersChart) renderHoldersChart(state.dailyHolderCounts);
+    if (state.tvlChart) renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+    if (state.holdersChart) renderHoldersChart(state.dailyHolderCounts, state.chartType);
   }
 
   function updateThemeToggle() {
@@ -617,15 +766,32 @@
     });
 
     $('period-toggle').addEventListener('click', (e) => {
-      const btn = e.target.closest('.period-btn');
+      const btn = e.target.closest('.pill-btn');
       if (!btn) return;
       const p = btn.getAttribute('data-period');
       state.currentPeriod = p;
-      const all = document.querySelectorAll('.period-btn');
+      const all = $('period-toggle').querySelectorAll('.pill-btn');
       for (let i = 0; i < all.length; i++) {
         all[i].classList.toggle('is-active', all[i] === btn);
       }
-      renderTvlApyChart(state.historyDaily, p);
+      renderTvlApyChart(state.historyDaily, p, state.chartType);
+    });
+
+    const viewToggles = document.querySelectorAll('.chart-type-toggle');
+    viewToggles.forEach((root) => {
+      root.addEventListener('click', (e) => {
+        const btn = e.target.closest('.pill-btn');
+        if (!btn) return;
+        const t = btn.getAttribute('data-type');
+        if (t === state.chartType) return;
+        state.chartType = t;
+        // Keep every chart-type toggle in sync.
+        document.querySelectorAll('.chart-type-toggle .pill-btn').forEach((b) => {
+          b.classList.toggle('is-active', b.getAttribute('data-type') === t);
+        });
+        renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+        renderHoldersChart(state.dailyHolderCounts, state.chartType);
+      });
     });
 
     $('holders-prev').addEventListener('click', () => {
@@ -661,63 +827,121 @@
     $('snapshot-rows').innerHTML = '<div class="hub-empty">Failed to load: ' + msg + '</div>';
   }
 
+  // Push raw history + txs into `state`. Recomputes all derived
+  // collections (daily buckets, holder balances, day snapshots, the
+  // current USD-per-share). Idempotent - safe to call again after a
+  // delta fetch with the merged dataset.
+  function applyData(vault, history, txs) {
+    state.vault = vault;
+    state.history = history;
+    state.historyDaily = bucketHistoryByDay(history);
+    state.txs = txs;
+
+    if (vault) {
+      if (vault.underlyingTokenDecimals != null) {
+        state.shareDecimals = Number(vault.underlyingTokenDecimals);
+      }
+      if (vault.underlyingTokenSymbol) {
+        state.underlyingSymbol = vault.underlyingTokenSymbol;
+      }
+    }
+
+    const recon = reconstructBalances(txs);
+    state.currentBalances = recon.balances;
+    state.firstSeen = recon.firstSeen;
+    state.dailySnapshots = recon.dailySnapshots;
+    state.totalShares = sumPositive(recon.balances);
+    state.dailyHolderCounts = computeDailyHolderCounts(state.dailySnapshots, history);
+
+    const latest = state.historyDaily.length > 0 ? state.historyDaily[state.historyDaily.length - 1] : null;
+    const tvlNow = (vault && vault.tvl != null) ? Number(vault.tvl) : (latest ? Number(latest.tvl) : 0);
+    const totalSharesNum = bigToShares(state.totalShares, state.shareDecimals);
+    state.currentTvl = tvlNow;
+    state.usdPerShareNow = (tvlNow > 0 && totalSharesNum > 0) ? (tvlNow / totalSharesNum) : 0;
+  }
+
+  function renderAll() {
+    let holderCount = 0;
+    state.currentBalances.forEach((b) => { if (b > 0n) holderCount++; });
+
+    renderStats(state.vault, state.historyDaily, holderCount);
+    renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+    renderHoldersChart(state.dailyHolderCounts, state.chartType);
+    renderHoldersList();
+
+    const dateInput = $('snapshot-date');
+    const today = todayKey();
+    const minDate = state.history.length > 0 ? dayKey(Number(state.history[0].timestamp)) : today;
+    dateInput.min = minDate;
+    dateInput.max = today;
+    if (!dateInput.value) dateInput.value = today;
+    renderSnapshot(dateInput.value || today);
+  }
+
   async function init() {
     updateThemeToggle();
     setupEvents();
     $('vault-link').textContent = fmtAddr(VAULT);
     $('vault-link').href = EXPLORER;
-    setLoadingState();
 
+    // Step 1 - hydrate from cache if we have one. This paints the
+    // page within a few ms, so a returning visitor doesn't sit on
+    // skeleton "..." text while the network round-trips.
+    const cache = readCache();
+    let renderedFromCache = false;
+    if (cache && cache.history.length > 0 && cache.txs.length > 0) {
+      try {
+        applyData(cache.meta, cache.history, cache.txs);
+        renderAll();
+        renderedFromCache = true;
+        const ageMin = Math.round((Date.now() - cache.updated) / 60000);
+        const ageLabel = ageMin < 1 ? 'just now' : (ageMin < 60 ? ageMin + 'm ago' : Math.round(ageMin / 60) + 'h ago');
+        setCacheStatus('Cached, ' + ageLabel + ' - updating...', 'gold');
+      } catch (e) {
+        console.warn('Cache render failed:', e);
+        renderedFromCache = false;
+      }
+    }
+    if (!renderedFromCache) setLoadingState();
+
+    // Step 2 - delta fetch. With a cache we ask the subgraph for
+    // records strictly after our cached max-timestamp; otherwise
+    // it's a full pull just like the cold-load path.
     try {
-      const userField = await discoverUserField();
+      const userField = (cache && cache.userField) || await discoverUserField();
+      const sinceHistoryTs = (cache && cache.history.length > 0) ? maxTimestamp(cache.history) : 0;
+      const sinceTxsTs = (cache && cache.txs.length > 0) ? maxTimestamp(cache.txs) : 0;
+
       const results = await Promise.all([
         loadVaultMeta().catch((e) => { console.warn('vault meta error', e); return null; }),
-        loadHistory(),
-        loadTransactions(userField),
+        loadHistory(sinceHistoryTs),
+        loadTransactions(userField, sinceTxsTs),
       ]);
       const vault = results[0];
-      const history = results[1];
-      const txs = results[2];
+      const newHistory = results[1];
+      const newTxs = results[2];
 
-      state.vault = vault;
-      state.history = history;
-      state.historyDaily = bucketHistoryByDay(history);
-      state.txs = txs;
+      const fullHistory = (cache ? cache.history : []).concat(newHistory);
+      const fullTxs = (cache ? cache.txs : []).concat(newTxs);
 
-      if (vault) {
-        if (vault.underlyingTokenDecimals != null) {
-          state.shareDecimals = Number(vault.underlyingTokenDecimals);
-        }
-        if (vault.underlyingTokenSymbol) {
-          state.underlyingSymbol = vault.underlyingTokenSymbol;
-        }
+      applyData(vault, fullHistory, fullTxs);
+      renderAll();
+
+      writeCache({ meta: vault, history: fullHistory, txs: fullTxs, userField: userField });
+
+      if (renderedFromCache) {
+        const added = newHistory.length + newTxs.length;
+        const msg = added > 0 ? ('Updated, +' + added + ' new record' + (added === 1 ? '' : 's')) : 'Up to date';
+        setCacheStatus(msg, 'gold');
+        setTimeout(() => setCacheStatus(null), 2500);
       }
-
-      const recon = reconstructBalances(txs);
-      state.currentBalances = recon.balances;
-      state.firstSeen = recon.firstSeen;
-      state.dailySnapshots = recon.dailySnapshots;
-      state.totalShares = sumPositive(recon.balances);
-      state.dailyHolderCounts = computeDailyHolderCounts(state.dailySnapshots, history);
-
-      let holderCount = 0;
-      recon.balances.forEach((b) => { if (b > 0n) holderCount++; });
-
-      renderStats(vault, state.historyDaily, holderCount);
-      renderTvlApyChart(state.historyDaily, state.currentPeriod);
-      renderHoldersChart(state.dailyHolderCounts);
-      renderHoldersList();
-
-      const dateInput = $('snapshot-date');
-      const today = todayKey();
-      const minDate = history.length > 0 ? dayKey(Number(history[0].timestamp)) : today;
-      dateInput.min = minDate;
-      dateInput.max = today;
-      dateInput.value = today;
-      renderSnapshot(today);
     } catch (e) {
       console.error('Dashboard load error:', e);
-      setErrorState(e && e.message ? e.message : 'unknown error');
+      if (renderedFromCache) {
+        setCacheStatus('Update failed, showing cached data', 'warn');
+      } else {
+        setErrorState(e && e.message ? e.message : 'unknown error');
+      }
     }
   }
 
