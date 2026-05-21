@@ -92,6 +92,77 @@
     return new Date().toISOString().slice(0, 10);
   }
 
+  // ─── Local cache (localStorage) ──────────────────────────
+  // Cache the raw history + tx records so a returning visitor sees
+  // the dashboard immediately. Background fetch pulls only records
+  // newer than the cached max-timestamp (delta sync), then merges
+  // and writes back. Bump CACHE_VERSION to invalidate everything if
+  // the cached shape ever changes.
+  const CACHE_VERSION = 1;
+  const CACHE_KEYS = {
+    schema: 'harvest:v',
+    meta: 'harvest:meta:' + VAULT,
+    history: 'harvest:history:' + VAULT,
+    txs: 'harvest:txs:' + VAULT,
+    userField: 'harvest:userField:' + VAULT,
+    updated: 'harvest:updated:' + VAULT,
+  };
+
+  function clearCache() {
+    try {
+      Object.keys(CACHE_KEYS).forEach((k) => localStorage.removeItem(CACHE_KEYS[k]));
+    } catch (e) {}
+  }
+
+  function readCache() {
+    try {
+      const v = localStorage.getItem(CACHE_KEYS.schema);
+      if (v !== String(CACHE_VERSION)) { clearCache(); return null; }
+      const history = JSON.parse(localStorage.getItem(CACHE_KEYS.history) || '[]');
+      const txs = JSON.parse(localStorage.getItem(CACHE_KEYS.txs) || '[]');
+      const meta = JSON.parse(localStorage.getItem(CACHE_KEYS.meta) || 'null');
+      const userField = localStorage.getItem(CACHE_KEYS.userField) || null;
+      const updated = Number(localStorage.getItem(CACHE_KEYS.updated) || 0);
+      return { history, txs, meta, userField, updated };
+    } catch (e) {
+      console.warn('Cache read failed:', e);
+      return null;
+    }
+  }
+
+  function writeCache(parts) {
+    try {
+      localStorage.setItem(CACHE_KEYS.schema, String(CACHE_VERSION));
+      if (parts.meta !== undefined) localStorage.setItem(CACHE_KEYS.meta, JSON.stringify(parts.meta));
+      if (parts.history) localStorage.setItem(CACHE_KEYS.history, JSON.stringify(parts.history));
+      if (parts.txs) localStorage.setItem(CACHE_KEYS.txs, JSON.stringify(parts.txs));
+      if (parts.userField) localStorage.setItem(CACHE_KEYS.userField, parts.userField);
+      localStorage.setItem(CACHE_KEYS.updated, String(Date.now()));
+    } catch (e) {
+      // QuotaExceededError or private-mode storage block. Not fatal.
+      console.warn('Cache write failed:', e);
+    }
+  }
+
+  function maxTimestamp(arr) {
+    let m = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const t = Number(arr[i].timestamp);
+      if (t > m) m = t;
+    }
+    return m;
+  }
+
+  function setCacheStatus(text, kind) {
+    const el = $('cache-status');
+    if (!el) return;
+    if (!text) { el.hidden = true; return; }
+    el.hidden = false;
+    el.textContent = text;
+    const variant = kind === 'warn' ? 'is-warn' : (kind === 'gold' ? 'is-gold' : 'is-muted');
+    el.className = 'cache-status pill-tinted ' + variant;
+  }
+
   // ─── GraphQL ─────────────────────────────────────────────
   async function gql(query, variables) {
     const r = await fetch(ENDPOINT, {
@@ -125,9 +196,9 @@
     }
   }
 
-  async function loadHistory() {
+  async function loadHistory(sinceTs) {
     const out = [];
-    let lastTs = 0;
+    let lastTs = Number(sinceTs) || 0;
     while (true) {
       const q = '{ plasmaVaultHistories(where: { plasmaVault_: { id: "' + VAULT + '" }, timestamp_gt: "' + lastTs + '" } orderBy: timestamp orderDirection: asc first: ' + PAGE_SIZE + ') { timestamp tvl sharePrice apy } }';
       const d = await gql(q);
@@ -163,9 +234,9 @@
     }
   }
 
-  async function loadTransactions(userField) {
+  async function loadTransactions(userField, sinceTs) {
     const out = [];
-    let lastTs = 0;
+    let lastTs = Number(sinceTs) || 0;
     while (true) {
       const q = '{ userTransactions(where: { plasmaVault_: { id: "' + VAULT + '" }, timestamp_gt: "' + lastTs + '" } orderBy: timestamp orderDirection: asc first: ' + PAGE_SIZE + ') { timestamp value transactionType ' + userField + ' } }';
       const d = await gql(q);
@@ -756,70 +827,121 @@
     $('snapshot-rows').innerHTML = '<div class="hub-empty">Failed to load: ' + msg + '</div>';
   }
 
+  // Push raw history + txs into `state`. Recomputes all derived
+  // collections (daily buckets, holder balances, day snapshots, the
+  // current USD-per-share). Idempotent - safe to call again after a
+  // delta fetch with the merged dataset.
+  function applyData(vault, history, txs) {
+    state.vault = vault;
+    state.history = history;
+    state.historyDaily = bucketHistoryByDay(history);
+    state.txs = txs;
+
+    if (vault) {
+      if (vault.underlyingTokenDecimals != null) {
+        state.shareDecimals = Number(vault.underlyingTokenDecimals);
+      }
+      if (vault.underlyingTokenSymbol) {
+        state.underlyingSymbol = vault.underlyingTokenSymbol;
+      }
+    }
+
+    const recon = reconstructBalances(txs);
+    state.currentBalances = recon.balances;
+    state.firstSeen = recon.firstSeen;
+    state.dailySnapshots = recon.dailySnapshots;
+    state.totalShares = sumPositive(recon.balances);
+    state.dailyHolderCounts = computeDailyHolderCounts(state.dailySnapshots, history);
+
+    const latest = state.historyDaily.length > 0 ? state.historyDaily[state.historyDaily.length - 1] : null;
+    const tvlNow = (vault && vault.tvl != null) ? Number(vault.tvl) : (latest ? Number(latest.tvl) : 0);
+    const totalSharesNum = bigToShares(state.totalShares, state.shareDecimals);
+    state.currentTvl = tvlNow;
+    state.usdPerShareNow = (tvlNow > 0 && totalSharesNum > 0) ? (tvlNow / totalSharesNum) : 0;
+  }
+
+  function renderAll() {
+    let holderCount = 0;
+    state.currentBalances.forEach((b) => { if (b > 0n) holderCount++; });
+
+    renderStats(state.vault, state.historyDaily, holderCount);
+    renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+    renderHoldersChart(state.dailyHolderCounts, state.chartType);
+    renderHoldersList();
+
+    const dateInput = $('snapshot-date');
+    const today = todayKey();
+    const minDate = state.history.length > 0 ? dayKey(Number(state.history[0].timestamp)) : today;
+    dateInput.min = minDate;
+    dateInput.max = today;
+    if (!dateInput.value) dateInput.value = today;
+    renderSnapshot(dateInput.value || today);
+  }
+
   async function init() {
     updateThemeToggle();
     setupEvents();
     $('vault-link').textContent = fmtAddr(VAULT);
     $('vault-link').href = EXPLORER;
-    setLoadingState();
 
+    // Step 1 - hydrate from cache if we have one. This paints the
+    // page within a few ms, so a returning visitor doesn't sit on
+    // skeleton "..." text while the network round-trips.
+    const cache = readCache();
+    let renderedFromCache = false;
+    if (cache && cache.history.length > 0 && cache.txs.length > 0) {
+      try {
+        applyData(cache.meta, cache.history, cache.txs);
+        renderAll();
+        renderedFromCache = true;
+        const ageMin = Math.round((Date.now() - cache.updated) / 60000);
+        const ageLabel = ageMin < 1 ? 'just now' : (ageMin < 60 ? ageMin + 'm ago' : Math.round(ageMin / 60) + 'h ago');
+        setCacheStatus('Cached, ' + ageLabel + ' - updating...', 'gold');
+      } catch (e) {
+        console.warn('Cache render failed:', e);
+        renderedFromCache = false;
+      }
+    }
+    if (!renderedFromCache) setLoadingState();
+
+    // Step 2 - delta fetch. With a cache we ask the subgraph for
+    // records strictly after our cached max-timestamp; otherwise
+    // it's a full pull just like the cold-load path.
     try {
-      const userField = await discoverUserField();
+      const userField = (cache && cache.userField) || await discoverUserField();
+      const sinceHistoryTs = (cache && cache.history.length > 0) ? maxTimestamp(cache.history) : 0;
+      const sinceTxsTs = (cache && cache.txs.length > 0) ? maxTimestamp(cache.txs) : 0;
+
       const results = await Promise.all([
         loadVaultMeta().catch((e) => { console.warn('vault meta error', e); return null; }),
-        loadHistory(),
-        loadTransactions(userField),
+        loadHistory(sinceHistoryTs),
+        loadTransactions(userField, sinceTxsTs),
       ]);
       const vault = results[0];
-      const history = results[1];
-      const txs = results[2];
+      const newHistory = results[1];
+      const newTxs = results[2];
 
-      state.vault = vault;
-      state.history = history;
-      state.historyDaily = bucketHistoryByDay(history);
-      state.txs = txs;
+      const fullHistory = (cache ? cache.history : []).concat(newHistory);
+      const fullTxs = (cache ? cache.txs : []).concat(newTxs);
 
-      if (vault) {
-        if (vault.underlyingTokenDecimals != null) {
-          state.shareDecimals = Number(vault.underlyingTokenDecimals);
-        }
-        if (vault.underlyingTokenSymbol) {
-          state.underlyingSymbol = vault.underlyingTokenSymbol;
-        }
+      applyData(vault, fullHistory, fullTxs);
+      renderAll();
+
+      writeCache({ meta: vault, history: fullHistory, txs: fullTxs, userField: userField });
+
+      if (renderedFromCache) {
+        const added = newHistory.length + newTxs.length;
+        const msg = added > 0 ? ('Updated, +' + added + ' new record' + (added === 1 ? '' : 's')) : 'Up to date';
+        setCacheStatus(msg, 'gold');
+        setTimeout(() => setCacheStatus(null), 2500);
       }
-
-      const recon = reconstructBalances(txs);
-      state.currentBalances = recon.balances;
-      state.firstSeen = recon.firstSeen;
-      state.dailySnapshots = recon.dailySnapshots;
-      state.totalShares = sumPositive(recon.balances);
-      state.dailyHolderCounts = computeDailyHolderCounts(state.dailySnapshots, history);
-
-      // Compute current USD-per-share so the holders table can rank by value.
-      const latest = state.historyDaily.length > 0 ? state.historyDaily[state.historyDaily.length - 1] : null;
-      const tvlNow = (vault && vault.tvl != null) ? Number(vault.tvl) : (latest ? Number(latest.tvl) : 0);
-      const totalSharesNum = bigToShares(state.totalShares, state.shareDecimals);
-      state.currentTvl = tvlNow;
-      state.usdPerShareNow = (tvlNow > 0 && totalSharesNum > 0) ? (tvlNow / totalSharesNum) : 0;
-
-      let holderCount = 0;
-      recon.balances.forEach((b) => { if (b > 0n) holderCount++; });
-
-      renderStats(vault, state.historyDaily, holderCount);
-      renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
-      renderHoldersChart(state.dailyHolderCounts, state.chartType);
-      renderHoldersList();
-
-      const dateInput = $('snapshot-date');
-      const today = todayKey();
-      const minDate = history.length > 0 ? dayKey(Number(history[0].timestamp)) : today;
-      dateInput.min = minDate;
-      dateInput.max = today;
-      dateInput.value = today;
-      renderSnapshot(today);
     } catch (e) {
       console.error('Dashboard load error:', e);
-      setErrorState(e && e.message ? e.message : 'unknown error');
+      if (renderedFromCache) {
+        setCacheStatus('Update failed, showing cached data', 'warn');
+      } else {
+        setErrorState(e && e.message ? e.message : 'unknown error');
+      }
     }
   }
 
