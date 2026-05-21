@@ -60,7 +60,7 @@
           <div class="uni-hub-stat-value" id="stat-tvl">-</div>
         </div>
         <div class="uni-hub-stat">
-          <div class="uni-hub-stat-label">APY</div>
+          <div class="uni-hub-stat-label">Live APY</div>
           <div class="uni-hub-stat-value" id="stat-apy">-</div>
         </div>
         <div class="uni-hub-stat">
@@ -115,57 +115,84 @@
       </div>
     </section>
 
-    <section class="uni-hub-section">
-      <header class="uni-hub-section-head">
-        <h2 class="uni-hub-section-title">Current holders</h2>
-        <span class="uni-hub-section-meta" id="holders-count">-</span>
-      </header>
-      <div class="hub-table-wrap">
-        <div class="hub-table" id="holders-table" role="table">
-          <div class="hub-thead holders-grid" role="row">
-            <span class="hub-th hub-th-rank">#</span>
-            <span class="hub-th">Address</span>
-            <span class="hub-th hub-th-right">USD Value</span>
-            <span class="hub-th hub-th-right">Shares</span>
-            <span class="hub-th hub-th-right">% Supply</span>
-            <span class="hub-th hub-th-right">First Deposit</span>
-          </div>
-          <div id="holders-rows">
-            <div class="hub-empty">Loading holders...</div>
+    <div class="rankings-row">
+      <section class="uni-hub-section ranking-section">
+        <header class="uni-hub-section-head">
+          <h2 class="uni-hub-section-title">
+            Current holders
+            <button
+              class="info-tip"
+              type="button"
+              aria-label="What is Current holders?"
+              data-tip="Live balances right now, summed from every deposit and withdrawal the vault has ever seen. Sorted by USD value."
+              title="Live balances right now, summed from every deposit and withdrawal the vault has ever seen. Sorted by USD value."
+            >i</button>
+          </h2>
+          <span class="uni-hub-section-meta" id="holders-count">-</span>
+        </header>
+        <div class="hub-table-wrap">
+          <div class="hub-table" id="holders-table" role="table">
+            <div class="hub-thead holders-grid" role="row">
+              <span class="hub-th hub-th-rank">#</span>
+              <span class="hub-th">Address</span>
+              <span class="hub-th hub-th-right">USD Value</span>
+              <span class="hub-th hub-th-right">Shares</span>
+              <span class="hub-th hub-th-right">% Supply</span>
+              <span class="hub-th hub-th-right">First Deposit</span>
+            </div>
+            <div id="holders-rows">
+              <div class="hub-empty">Loading holders...</div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="holders-pagination" id="holders-pagination" hidden>
-        <button class="pagination-btn" id="holders-prev" type="button">Previous</button>
-        <span class="pagination-info" id="holders-info">-</span>
-        <button class="pagination-btn" id="holders-next" type="button">Next</button>
-      </div>
-    </section>
+        <div class="holders-pagination" id="holders-pagination" hidden>
+          <button class="pagination-btn" id="holders-prev" type="button">Previous</button>
+          <span class="pagination-info" id="holders-info">-</span>
+          <button class="pagination-btn" id="holders-next" type="button">Next</button>
+        </div>
+      </section>
 
-    <section class="uni-hub-section">
-      <header class="uni-hub-section-head">
-        <h2 class="uni-hub-section-title">Holders snapshot</h2>
-        <div class="snapshot-controls">
-          <label for="snapshot-date" class="snapshot-label">Date</label>
-          <input type="date" id="snapshot-date" class="snapshot-date" />
+      <section class="uni-hub-section ranking-section">
+        <header class="uni-hub-section-head">
+          <h2 class="uni-hub-section-title">
+            Holders snapshot
+            <button
+              class="info-tip"
+              type="button"
+              aria-label="What is Holders snapshot?"
+              data-tip="Balances at the end of the day you pick below, useful for comparing the holder set across time. Defaults to today; works for any day since the vault launched."
+              title="Balances at the end of the day you pick below, useful for comparing the holder set across time. Defaults to today; works for any day since the vault launched."
+            >i</button>
+          </h2>
+          <div class="snapshot-controls">
+            <label for="snapshot-date" class="snapshot-label">Date</label>
+            <input type="date" id="snapshot-date" class="snapshot-date" />
+          </div>
+        </header>
+        <div class="snapshot-summary-row">
           <span class="pill-tinted is-muted" id="snapshot-summary">- holders</span>
         </div>
-      </header>
-      <div class="hub-table-wrap">
-        <div class="hub-table" role="table">
-          <div class="hub-thead holders-snapshot-grid" role="row">
-            <span class="hub-th hub-th-rank">#</span>
-            <span class="hub-th">Address</span>
-            <span class="hub-th hub-th-right">USD Value</span>
-            <span class="hub-th hub-th-right">Shares</span>
-            <span class="hub-th hub-th-right">% Supply</span>
-          </div>
-          <div id="snapshot-rows">
-            <div class="hub-empty">Loading snapshot...</div>
+        <div class="hub-table-wrap">
+          <div class="hub-table" role="table">
+            <div class="hub-thead holders-snapshot-grid" role="row">
+              <span class="hub-th hub-th-rank">#</span>
+              <span class="hub-th">Address</span>
+              <span class="hub-th hub-th-right">USD Value</span>
+              <span class="hub-th hub-th-right">Shares</span>
+              <span class="hub-th hub-th-right">% Supply</span>
+            </div>
+            <div id="snapshot-rows">
+              <div class="hub-empty">Loading snapshot...</div>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+        <div class="holders-pagination" id="snapshot-pagination" hidden>
+          <button class="pagination-btn" id="snapshot-prev" type="button">Previous</button>
+          <span class="pagination-info" id="snapshot-info">-</span>
+          <button class="pagination-btn" id="snapshot-next" type="button">Next</button>
+        </div>
+      </section>
+    </div>
 
     <footer class="uni-hub-section footer-section">
       <div class="note">

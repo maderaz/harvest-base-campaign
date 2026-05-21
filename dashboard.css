@@ -115,23 +115,62 @@
   .chart-container { height: 240px; }
 }
 
+/* ── Rankings row (50/50 side-by-side) ─────────────────────── */
+.rankings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 56px;
+}
+.rankings-row .ranking-section { margin-top: 0; min-width: 0; }
+.rankings-row .ranking-section .uni-hub-section-title { font-size: 19px; }
+.rankings-row .hub-table-wrap { margin-top: 4px; }
+.snapshot-summary-row { margin: 6px 0 4px; }
+@media (max-width: 1100px) {
+  .rankings-row { grid-template-columns: 1fr; gap: 40px; }
+  .rankings-row .ranking-section .uni-hub-section-title { font-size: 22px; }
+}
+
 /* ── Hub-table grid overrides ──────────────────────────────── */
 /* Each `.hub-row` reads `grid-template-columns` either from inline
-   style or from a class. We override per-page-table here. */
+   style or from a class. Tighter gaps + padding here let the 6/5
+   columns fit inside the 50/50 ranking column. */
 .uni-hub-test .hub-thead.holders-grid,
 .uni-hub-test .hub-row.holders-grid {
-  grid-template-columns: 48px minmax(0, 1.3fr) 1fr 1fr 0.6fr 0.9fr;
-  gap: 16px;
+  grid-template-columns: 32px minmax(0, 1.2fr) 0.9fr 0.9fr 0.5fr 0.95fr;
+  gap: 10px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 .uni-hub-test .hub-thead.holders-snapshot-grid,
 .uni-hub-test .hub-row.holders-snapshot-grid {
-  grid-template-columns: 48px minmax(0, 1.5fr) 1fr 1fr 0.6fr;
-  gap: 16px;
+  grid-template-columns: 32px minmax(0, 1.4fr) 0.9fr 0.9fr 0.5fr;
+  gap: 10px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* Row vertical padding: 18px in components.css. Knock it ~20%
+   lower (to 14px) for these two tables only. */
+.uni-hub-test .hub-row.holders-grid,
+.uni-hub-test .hub-row.holders-snapshot-grid {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* Tighten the row text so the narrower columns still read clean. */
+.uni-hub-test .hub-row.holders-grid .hub-num,
+.uni-hub-test .hub-row.holders-snapshot-grid .hub-num {
+  font-size: 14px;
+}
+.uni-hub-test .hub-row.holders-grid .hub-rank,
+.uni-hub-test .hub-row.holders-snapshot-grid .hub-rank {
+  font-size: 13px;
 }
 
 .holder-addr {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
@@ -213,6 +252,78 @@
 :root[data-theme="dark"] .snapshot-date::-webkit-calendar-picker-indicator {
   filter: invert(1);
   opacity: 0.7;
+}
+
+/* ── Stat value overflow safety ────────────────────────────── */
+/* Belt-and-braces in case some upstream value comes through long;
+   the share-price normalizer in JS handles the common case, this
+   keeps the tile from breaking layout for any other oversized
+   string. */
+.uni-hub-test .uni-hub-stat-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Info tooltip ──────────────────────────────────────────── */
+/* Small circular "i" button next to a section title. Native `title`
+   covers touch + screen readers; the CSS ::after gives a styled
+   tooltip on hover/focus for pointer devices. */
+.info-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0;
+  background: var(--tint);
+  color: var(--ink-2);
+  border: none;
+  border-radius: 50%;
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  cursor: help;
+  vertical-align: 2px;
+  position: relative;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.info-tip:hover, .info-tip:focus-visible {
+  background: var(--ink);
+  color: var(--bg);
+  outline: none;
+}
+.info-tip[data-tip]:hover::after,
+.info-tip[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 280px;
+  padding: 10px 14px;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+  z-index: 20;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+@media (max-width: 540px) {
+  /* On narrow screens fall back to the browser's native `title`
+     so we don't risk overflowing the viewport. */
+  .info-tip[data-tip]:hover::after,
+  .info-tip[data-tip]:focus-visible::after { display: none; }
 }
 
 /* ── Footer note ───────────────────────────────────────────── */

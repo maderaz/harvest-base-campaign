@@ -13,7 +13,7 @@
   const CHAIN_ID = 8453;
   const ENDPOINT = 'https://clownfish-app-2dsdk.ondigitalocean.app/' + CHAIN_ID;
   const PAGE_SIZE = 1000;
-  const HOLDERS_PER_PAGE = 50;
+  const HOLDERS_PER_PAGE = 20;
   const EXPLORER = 'https://basescan.org/address/' + VAULT;
 
   // ─── State ───────────────────────────────────────────────
@@ -28,6 +28,7 @@
     dailyHolderCounts: [],
     totalShares: 0n,
     holdersPage: 0,
+    snapshotPage: 0,
     tvlChart: null,
     holdersChart: null,
     currentPeriod: 'ALL',
@@ -367,6 +368,18 @@
     return Number(big) / Math.pow(10, d);
   }
 
+  // Some endpoints return sharePrice pre-decimaled (e.g. 1.0219) and
+  // others return it as a raw 18-decimal BigInt-string. Anything in
+  // the high billions is almost certainly the raw form; normalize it
+  // so the stat tile stays a clean 4-decimal number.
+  function normalizeSharePrice(raw, decimals) {
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    if (!isFinite(n)) return null;
+    if (Math.abs(n) > 1e10) return n / Math.pow(10, decimals || 18);
+    return n;
+  }
+
   // Find the most recent historyDaily entry on-or-before the given day.
   function findHistoryForDate(dateKey) {
     const arr = state.historyDaily;
@@ -398,12 +411,13 @@
     const latest = historyDaily.length > 0 ? historyDaily[historyDaily.length - 1] : null;
     const tvl = (vault && vault.tvl != null) ? vault.tvl : (latest ? latest.tvl : null);
     const apy = (vault && vault.apy != null) ? vault.apy : (latest ? latest.apy : null);
-    const sharePrice = (vault && vault.sharePrice != null) ? vault.sharePrice : (latest ? latest.sharePrice : null);
+    const rawSharePrice = (vault && vault.sharePrice != null) ? vault.sharePrice : (latest ? latest.sharePrice : null);
+    const sharePrice = normalizeSharePrice(rawSharePrice, state.shareDecimals);
 
     $('stat-tvl').textContent = tvl != null ? fmtUsd(tvl) : '-';
     $('stat-apy').textContent = apy != null ? fmtPct(apy) : '-';
     $('stat-holders').textContent = fmtNumber(holderCount);
-    $('stat-share').textContent = sharePrice != null ? Number(sharePrice).toFixed(4) : '-';
+    $('stat-share').textContent = sharePrice != null ? sharePrice.toFixed(4) : '-';
   }
 
   // ─── Rendering: charts ───────────────────────────────────
@@ -706,9 +720,11 @@
 
   function renderSnapshot(dateKey) {
     const snap = getSnapshotForDate(dateKey);
+    const pager = $('snapshot-pagination');
     if (!snap || snap.size === 0) {
       $('snapshot-rows').innerHTML = '<div class="hub-empty">No holders on this date.</div>';
       $('snapshot-summary').textContent = '0 holders';
+      if (pager) pager.hidden = true;
       return;
     }
 
@@ -724,14 +740,21 @@
     const totalUsdStr = usdPerShare > 0 ? ', ' + fmtUsd(totalUsdNum) : '';
     $('snapshot-summary').textContent = fmtNumber(holders.length) + ' holders, ' + fmtShares(total, state.shareDecimals) + ' shares' + totalUsdStr;
 
-    const rows = holders.map((row, i) => {
+    const totalPages = Math.max(1, Math.ceil(holders.length / HOLDERS_PER_PAGE));
+    if (state.snapshotPage >= totalPages) state.snapshotPage = totalPages - 1;
+    if (state.snapshotPage < 0) state.snapshotPage = 0;
+    const start = state.snapshotPage * HOLDERS_PER_PAGE;
+    const slice = holders.slice(start, start + HOLDERS_PER_PAGE);
+
+    const rows = slice.map((row, i) => {
       const addr = row[0];
       const shares = row[1];
+      const rank = start + i + 1;
       const pct = total > 0n ? (Number((shares * 10000n) / total) / 100).toFixed(2) : '0.00';
       const usd = usdPerShare > 0 ? fmtUsd(bigToShares(shares, state.shareDecimals) * usdPerShare) : '-';
       return ''
         + '<a class="hub-row holders-snapshot-grid" href="https://basescan.org/address/' + addr + '" target="_blank" rel="noreferrer" role="row">'
-        + '<span class="hub-cell hub-rank">' + (i + 1) + '</span>'
+        + '<span class="hub-cell hub-rank">' + rank + '</span>'
         + '<span class="hub-cell holder-addr" title="' + addr + '">' + fmtAddr(addr) + '</span>'
         + '<span class="hub-cell hub-num">' + usd + '</span>'
         + '<span class="hub-cell hub-num">' + fmtShares(shares, state.shareDecimals) + '</span>'
@@ -739,6 +762,17 @@
         + '</a>';
     }).join('');
     $('snapshot-rows').innerHTML = rows;
+
+    if (pager) {
+      if (holders.length > HOLDERS_PER_PAGE) {
+        pager.hidden = false;
+        $('snapshot-info').textContent = 'Page ' + (state.snapshotPage + 1) + ' of ' + totalPages;
+        $('snapshot-prev').disabled = state.snapshotPage === 0;
+        $('snapshot-next').disabled = state.snapshotPage >= totalPages - 1;
+      } else {
+        pager.hidden = true;
+      }
+    }
   }
 
   // ─── Theme toggle ────────────────────────────────────────
@@ -805,6 +839,20 @@
 
     $('snapshot-date').addEventListener('change', (e) => {
       const v = e.target.value;
+      if (v) {
+        state.snapshotPage = 0;
+        renderSnapshot(v);
+      }
+    });
+
+    $('snapshot-prev').addEventListener('click', () => {
+      state.snapshotPage = Math.max(0, state.snapshotPage - 1);
+      const v = $('snapshot-date').value;
+      if (v) renderSnapshot(v);
+    });
+    $('snapshot-next').addEventListener('click', () => {
+      state.snapshotPage = state.snapshotPage + 1;
+      const v = $('snapshot-date').value;
       if (v) renderSnapshot(v);
     });
   }
