@@ -426,6 +426,7 @@
     const css = getComputedStyle(document.documentElement);
     return {
       gold: (css.getPropertyValue('--gold') || '#ffb936').trim(),
+      apy: (css.getPropertyValue('--apy') || '#7c5cff').trim(),
       ink: (css.getPropertyValue('--ink') || '#191717').trim(),
       ink2: (css.getPropertyValue('--ink-2') || '#32312b').trim(),
       ink3: (css.getPropertyValue('--ink-3') || '#6e6c66').trim(),
@@ -433,6 +434,25 @@
       bg: (css.getPropertyValue('--bg') || '#ffffff').trim(),
       card: (css.getPropertyValue('--card-2') || '#ffffff').trim(),
     };
+  }
+
+  // ─── CSV download ────────────────────────────────────────
+  function csvCell(v) {
+    const s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function downloadCsv(filename, rows) {
+    if (!rows || rows.length === 0) return;
+    const csv = rows.map((r) => r.map(csvCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   function hexToRgba(hex, alpha) {
@@ -489,14 +509,16 @@
       type: 'line',
       label: 'APY',
       data: slice.map((d) => d.apy),
-      borderColor: theme.ink3,
+      borderColor: theme.apy,
       backgroundColor: 'transparent',
       yAxisID: 'y1',
-      borderWidth: 1.75,
-      borderDash: [4, 3],
+      borderWidth: 2,
+      borderDash: [5, 4],
       tension: 0.25,
       pointRadius: 0,
       pointHoverRadius: 4,
+      pointHoverBackgroundColor: theme.apy,
+      pointHoverBorderColor: theme.apy,
       fill: false,
       order: 1,
     };
@@ -549,18 +571,7 @@
           },
         },
         plugins: {
-          legend: {
-            position: 'top',
-            align: 'end',
-            labels: {
-              color: theme.ink2,
-              usePointStyle: true,
-              pointStyle: 'rectRounded',
-              boxWidth: 10,
-              boxHeight: 10,
-              font: { family: "'Inter', sans-serif", size: 12, weight: '500' },
-            },
-          },
+          legend: { display: false },
           tooltip: {
             backgroundColor: theme.ink,
             titleColor: theme.bg,
@@ -666,6 +677,58 @@
     });
   }
 
+  // ─── Rendering: ranking summary strips ───────────────────
+  // Small white-background tiles that sit above each ranking table.
+  // For Current: latest balances. For Snapshot: balances at the
+  // selected day's close.
+
+  function renderCurrentStats() {
+    let total = 0n;
+    let max = 0n;
+    let count = 0;
+    state.currentBalances.forEach((b) => {
+      if (b > 0n) {
+        count++;
+        total += b;
+        if (b > max) max = b;
+      }
+    });
+    const topPct = total > 0n ? Number((max * 10000n) / total) / 100 : 0;
+    const totalUsd = state.usdPerShareNow > 0 ? bigToShares(total, state.shareDecimals) * state.usdPerShareNow : 0;
+
+    setText('rstat-current-holders', count > 0 ? fmtNumber(count) : '-');
+    setText('rstat-current-value', totalUsd > 0 ? fmtUsd(totalUsd) : '-');
+    setText('rstat-current-top', count > 0 ? topPct.toFixed(2) + '%' : '-');
+  }
+
+  function renderSnapshotStats(dateKey, snapMaybe) {
+    const snap = snapMaybe || getSnapshotForDate(dateKey);
+    if (!snap || snap.size === 0) {
+      setText('rstat-snapshot-holders', '-');
+      setText('rstat-snapshot-value', '-');
+      setText('rstat-snapshot-top', '-');
+      return;
+    }
+    let total = 0n;
+    let max = 0n;
+    snap.forEach((b) => {
+      total += b;
+      if (b > max) max = b;
+    });
+    const topPct = total > 0n ? Number((max * 10000n) / total) / 100 : 0;
+    const usdPerShare = usdPerShareForDate(dateKey);
+    const totalUsd = usdPerShare > 0 ? bigToShares(total, state.shareDecimals) * usdPerShare : 0;
+
+    setText('rstat-snapshot-holders', fmtNumber(snap.size));
+    setText('rstat-snapshot-value', totalUsd > 0 ? fmtUsd(totalUsd) : '-');
+    setText('rstat-snapshot-top', topPct.toFixed(2) + '%');
+  }
+
+  function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+  }
+
   // ─── Rendering: holders list / snapshot ──────────────────
 
   function renderHoldersList() {
@@ -721,9 +784,9 @@
   function renderSnapshot(dateKey) {
     const snap = getSnapshotForDate(dateKey);
     const pager = $('snapshot-pagination');
+    renderSnapshotStats(dateKey, snap);
     if (!snap || snap.size === 0) {
       $('snapshot-rows').innerHTML = '<div class="hub-empty">No holders on this date.</div>';
-      $('snapshot-summary').textContent = '0 holders';
       if (pager) pager.hidden = true;
       return;
     }
@@ -736,9 +799,6 @@
     for (let i = 0; i < holders.length; i++) total += holders[i][1];
 
     const usdPerShare = usdPerShareForDate(dateKey);
-    const totalUsdNum = usdPerShare > 0 ? bigToShares(total, state.shareDecimals) * usdPerShare : 0;
-    const totalUsdStr = usdPerShare > 0 ? ', ' + fmtUsd(totalUsdNum) : '';
-    $('snapshot-summary').textContent = fmtNumber(holders.length) + ' holders, ' + fmtShares(total, state.shareDecimals) + ' shares' + totalUsdStr;
 
     const totalPages = Math.max(1, Math.ceil(holders.length / HOLDERS_PER_PAGE));
     if (state.snapshotPage >= totalPages) state.snapshotPage = totalPages - 1;
@@ -845,6 +905,28 @@
       }
     });
 
+    const tvlCsv = $('download-tvl-csv');
+    if (tvlCsv) {
+      tvlCsv.addEventListener('click', () => {
+        if (state.historyDaily.length === 0) return;
+        const rows = [['date', 'tvl_usd', 'apy_pct', 'share_price']];
+        state.historyDaily.forEach((d) => {
+          rows.push([d.date, d.tvl, d.apy, d.sharePrice]);
+        });
+        downloadCsv('weth-autopilot-tvl-apy.csv', rows);
+      });
+    }
+
+    const holdersCsv = $('download-holders-csv');
+    if (holdersCsv) {
+      holdersCsv.addEventListener('click', () => {
+        if (state.dailyHolderCounts.length === 0) return;
+        const rows = [['date', 'holders']];
+        state.dailyHolderCounts.forEach((d) => rows.push([d.date, d.count]));
+        downloadCsv('weth-autopilot-holders.csv', rows);
+      });
+    }
+
     $('snapshot-prev').addEventListener('click', () => {
       state.snapshotPage = Math.max(0, state.snapshotPage - 1);
       const v = $('snapshot-date').value;
@@ -915,6 +997,7 @@
     renderStats(state.vault, state.historyDaily, holderCount);
     renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
     renderHoldersChart(state.dailyHolderCounts, state.chartType);
+    renderCurrentStats();
     renderHoldersList();
 
     const dateInput = $('snapshot-date');
