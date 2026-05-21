@@ -91,27 +91,25 @@
 .uni-hub-test .uni-hub-sub { margin-bottom: 10px; }
 
 /* Vault contract address on its own line beneath the subtitle.
-   Reads like a mono code chip; clickable to Basescan. */
+   Plain mono link, slightly bolded, with a hairline underline that
+   warms up to gold on hover. No pill background. */
 .uni-hub-test .vault-address {
   display: inline-block;
-  max-width: 100%;
-  padding: 6px 12px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
+  margin-top: 2px;
   font-family: var(--mono);
   font-size: 12.5px;
+  font-weight: 600;
   letter-spacing: 0.005em;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+  word-break: break-all;
 }
 .uni-hub-test .vault-address:hover {
-  color: var(--ink);
-  border-color: var(--ink-3);
-  background: var(--card-2);
+  text-decoration-color: var(--gold);
 }
 
 /* Tinted info badge - blue (Base brand) - announcing the
