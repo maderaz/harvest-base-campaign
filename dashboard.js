@@ -522,10 +522,15 @@
           const label = opts.label;
           c.font = '600 11px "Inter", sans-serif';
           c.textBaseline = 'top';
+          // Match charts.md marker label: 0.02em letter-spacing (in
+          // px at 11px font that's ~0.22px). Native canvas letter
+          // spacing is supported in modern browsers; harmless to set
+          // on older ones - the attribute is just ignored.
+          try { c.letterSpacing = '0.22px'; } catch (e) {}
           const textWidth = c.measureText(label).width;
           // Decide which side of the line the label sits on so it
           // doesn't run off the right edge of the plot area.
-          const padX = 7;
+          const padX = 8;
           const padY = 5;
           const labelRight = x + 8 + textWidth + padX * 2;
           const drawLeft = labelRight > chart.chartArea.right;
@@ -533,9 +538,9 @@
           const boxY = top + 6;
           const boxW = textWidth + padX * 2;
           const boxH = 18 + padY;
-          // Filled tag
+          // Filled tag - 6px radius per charts.md section 9.
           c.fillStyle = color;
-          const r = 4;
+          const r = 6;
           c.beginPath();
           c.moveTo(boxX + r, boxY);
           c.lineTo(boxX + boxW - r, boxY);
@@ -615,7 +620,7 @@
       hoverBackgroundColor: barHoverColors,
       borderColor: theme.gold,
       borderWidth: 0,
-      borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
+      borderRadius: { topLeft: 5, topRight: 5, bottomLeft: 0, bottomRight: 0 },
       borderSkipped: false,
       barPercentage: 0.92,
       categoryPercentage: 0.96,
@@ -757,7 +762,7 @@
       hoverBackgroundColor: barHoverColors,
       borderColor: theme.gold,
       borderWidth: 0,
-      borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
+      borderRadius: { topLeft: 5, topRight: 5, bottomLeft: 0, bottomRight: 0 },
       borderSkipped: false,
       barPercentage: 0.92,
       categoryPercentage: 0.96,
