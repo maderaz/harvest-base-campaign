@@ -445,6 +445,14 @@
 
   // ─── Rendering: stats ────────────────────────────────────
 
+  // Set a stat-value text and remove the loading pulse class.
+  function setStat(id, value) {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = value;
+    el.classList.remove('is-loading');
+  }
+
   function renderStats(vault, historyDaily, holderCount) {
     const latest = historyDaily.length > 0 ? historyDaily[historyDaily.length - 1] : null;
     const tvl = (vault && vault.tvl != null) ? vault.tvl : (latest ? latest.tvl : null);
@@ -452,10 +460,10 @@
     const rawSharePrice = (vault && vault.sharePrice != null) ? vault.sharePrice : (latest ? latest.sharePrice : null);
     const sharePrice = normalizeSharePrice(rawSharePrice, state.shareDecimals);
 
-    $('stat-tvl').textContent = tvl != null ? fmtUsd(tvl) : '-';
-    $('stat-apy').textContent = apy != null ? fmtPct(apy) : '-';
-    $('stat-holders').textContent = fmtNumber(holderCount);
-    $('stat-share').textContent = sharePrice != null ? sharePrice.toFixed(4) : '-';
+    setStat('stat-tvl', tvl != null ? fmtUsd(tvl) : '-');
+    setStat('stat-apy', apy != null ? fmtPct(apy) : '-');
+    setStat('stat-holders', fmtNumber(holderCount));
+    setStat('stat-share', sharePrice != null ? sharePrice.toFixed(4) : '-');
   }
 
   // ─── Rendering: charts ───────────────────────────────────
@@ -699,6 +707,8 @@
         },
       },
     });
+    const tvlLoading = $('tvl-loading');
+    if (tvlLoading) tvlLoading.hidden = true;
   }
 
   function renderHoldersChart(dailyHolders, chartType) {
@@ -785,6 +795,8 @@
         },
       },
     });
+    const hLoading = $('holders-chart-loading');
+    if (hLoading) hLoading.hidden = true;
   }
 
   // ─── Rendering: ranking summary strips ───────────────────
@@ -834,9 +846,13 @@
     setText('rstat-snapshot-top', topPct.toFixed(2) + '%');
   }
 
+  // Set a textContent helper, also strips the loading-pulse class
+  // so ranking-stat-value tiles transition out of skeleton mode.
   function setText(id, value) {
     const el = $(id);
-    if (el) el.textContent = value;
+    if (!el) return;
+    el.textContent = value;
+    el.classList.remove('is-loading');
   }
 
   // ─── Rendering: holders list / snapshot ──────────────────
@@ -1052,10 +1068,17 @@
   // ─── Init ────────────────────────────────────────────────
 
   function setLoadingState() {
-    $('stat-tvl').textContent = '...';
-    $('stat-apy').textContent = '...';
-    $('stat-holders').textContent = '...';
-    $('stat-share').textContent = '...';
+    const pulseIds = [
+      'stat-tvl', 'stat-apy', 'stat-holders', 'stat-share',
+      'rstat-current-holders', 'rstat-current-value', 'rstat-current-top',
+      'rstat-snapshot-holders', 'rstat-snapshot-value', 'rstat-snapshot-top',
+    ];
+    pulseIds.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = '...';
+      el.classList.add('is-loading');
+    });
   }
 
   function setErrorState(msg) {
