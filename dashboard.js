@@ -37,6 +37,8 @@
     holdersChart: null,
     currentPeriod: 'ALL',
     chartType: 'bar',
+    tvlIncentivesMode: false,
+    holdersIncentivesMode: false,
     shareDecimals: 18,
     underlyingSymbol: 'WETH',
     usdPerShareNow: 0,
@@ -587,16 +589,30 @@
     if (typeof Chart === 'undefined') { console.warn('Chart.js not loaded'); return; }
     ensureVerticalLinePlugin();
     const theme = getChartTheme();
-    const slice = getPeriodSlice(daily, period);
+    const isIncMode = state.tvlIncentivesMode;
+    // In incentives mode, slice from the incentives start date (inclusive)
+    // so the very first bar IS the incentives-start bar and gets a blue
+    // highlight below. Period toggle is ignored in this mode.
+    const slice = isIncMode
+      ? daily.filter((d) => d.date >= BASE_INCENTIVES_START)
+      : getPeriodSlice(daily, period);
     if (state.tvlChart) state.tvlChart.destroy();
     const isBar = chartType === 'bar';
+
+    const goldBar = hexToRgba(theme.gold, 0.85);
+    const barColors = isIncMode && slice.length > 0
+      ? slice.map((_, i) => i === 0 ? BASE_BLUE : goldBar)
+      : goldBar;
+    const barHoverColors = isIncMode && slice.length > 0
+      ? slice.map((_, i) => i === 0 ? BASE_BLUE : theme.gold)
+      : theme.gold;
 
     const tvlDataset = isBar ? {
       type: 'bar',
       label: 'TVL',
       data: slice.map((d) => d.tvl),
-      backgroundColor: hexToRgba(theme.gold, 0.85),
-      hoverBackgroundColor: theme.gold,
+      backgroundColor: barColors,
+      hoverBackgroundColor: barHoverColors,
       borderColor: theme.gold,
       borderWidth: 0,
       borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
@@ -687,7 +703,10 @@
         },
         plugins: {
           legend: { display: false },
-          vline: { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
+          // Skip the annotation when in incentives mode - the blue
+          // first bar already marks the same date, so a line would
+          // double up on it.
+          vline: isIncMode ? null : { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
           tooltip: {
             backgroundColor: theme.ink,
             titleColor: theme.bg,
@@ -717,13 +736,25 @@
     const theme = getChartTheme();
     if (state.holdersChart) state.holdersChart.destroy();
     const isBar = chartType === 'bar';
+    const isIncMode = state.holdersIncentivesMode;
+    const slice = isIncMode
+      ? dailyHolders.filter((d) => d.date >= BASE_INCENTIVES_START)
+      : dailyHolders;
+
+    const goldBar = hexToRgba(theme.gold, 0.85);
+    const barColors = isIncMode && slice.length > 0
+      ? slice.map((_, i) => i === 0 ? BASE_BLUE : goldBar)
+      : goldBar;
+    const barHoverColors = isIncMode && slice.length > 0
+      ? slice.map((_, i) => i === 0 ? BASE_BLUE : theme.gold)
+      : theme.gold;
 
     const dataset = isBar ? {
       type: 'bar',
       label: 'Holders',
-      data: dailyHolders.map((d) => d.count),
-      backgroundColor: hexToRgba(theme.gold, 0.85),
-      hoverBackgroundColor: theme.gold,
+      data: slice.map((d) => d.count),
+      backgroundColor: barColors,
+      hoverBackgroundColor: barHoverColors,
       borderColor: theme.gold,
       borderWidth: 0,
       borderRadius: { topLeft: 3, topRight: 3, bottomLeft: 0, bottomRight: 0 },
@@ -733,7 +764,7 @@
     } : {
       type: 'line',
       label: 'Holders',
-      data: dailyHolders.map((d) => d.count),
+      data: slice.map((d) => d.count),
       borderColor: theme.gold,
       backgroundColor: hexToRgba(theme.gold, 0.12),
       borderWidth: 2,
@@ -747,7 +778,7 @@
     state.holdersChart = new Chart(ctx, {
       type: isBar ? 'bar' : 'line',
       data: {
-        labels: dailyHolders.map((d) => d.date),
+        labels: slice.map((d) => d.date),
         datasets: [dataset],
       },
       options: {
@@ -780,7 +811,7 @@
         },
         plugins: {
           legend: { display: false },
-          vline: { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
+          vline: isIncMode ? null : { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
           tooltip: {
             backgroundColor: theme.ink,
             titleColor: theme.bg,
@@ -990,12 +1021,41 @@
       if (!btn) return;
       const p = btn.getAttribute('data-period');
       state.currentPeriod = p;
+      // Picking a period exits incentives mode (they're mutually exclusive).
+      state.tvlIncentivesMode = false;
+      const incBtn = $('tvl-since-incentives');
+      if (incBtn) incBtn.classList.remove('is-active');
       const all = $('period-toggle').querySelectorAll('.pill-btn');
       for (let i = 0; i < all.length; i++) {
         all[i].classList.toggle('is-active', all[i] === btn);
       }
       renderTvlApyChart(state.historyDaily, p, state.chartType);
     });
+
+    const tvlIncBtn = $('tvl-since-incentives');
+    if (tvlIncBtn) {
+      tvlIncBtn.addEventListener('click', () => {
+        state.tvlIncentivesMode = !state.tvlIncentivesMode;
+        tvlIncBtn.classList.toggle('is-active', state.tvlIncentivesMode);
+        // Clear the period pill highlight while in incentives mode;
+        // restore the current period's highlight when we exit it.
+        const periodBtns = $('period-toggle').querySelectorAll('.pill-btn');
+        periodBtns.forEach((b) => {
+          if (state.tvlIncentivesMode) b.classList.remove('is-active');
+          else b.classList.toggle('is-active', b.getAttribute('data-period') === state.currentPeriod);
+        });
+        renderTvlApyChart(state.historyDaily, state.currentPeriod, state.chartType);
+      });
+    }
+
+    const holdersIncBtn = $('holders-since-incentives');
+    if (holdersIncBtn) {
+      holdersIncBtn.addEventListener('click', () => {
+        state.holdersIncentivesMode = !state.holdersIncentivesMode;
+        holdersIncBtn.classList.toggle('is-active', state.holdersIncentivesMode);
+        renderHoldersChart(state.dailyHolderCounts, state.chartType);
+      });
+    }
 
     const viewToggles = document.querySelectorAll('.chart-type-toggle');
     viewToggles.forEach((root) => {

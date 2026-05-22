@@ -130,14 +130,20 @@
               APY
             </span>
           </div>
-          <button class="chart-action" id="download-tvl-csv" type="button" title="Download CSV">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            CSV
-          </button>
+          <div class="chart-actions">
+            <button class="chart-action since-incentives" id="tvl-since-incentives" type="button" title="Show data since Base incentives started">
+              <span class="base-square" aria-hidden="true"></span>
+              Since Incentives
+            </button>
+            <button class="chart-action" id="download-tvl-csv" type="button" title="Download CSV">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              CSV
+            </button>
+          </div>
         </div>
         <div class="chart-container">
           <canvas id="tvl-apy-chart" aria-label="TVL and APY over time"></canvas>
@@ -171,14 +177,20 @@
               Holders
             </span>
           </div>
-          <button class="chart-action" id="download-holders-csv" type="button" title="Download CSV">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            CSV
-          </button>
+          <div class="chart-actions">
+            <button class="chart-action since-incentives" id="holders-since-incentives" type="button" title="Show holders since Base incentives started">
+              <span class="base-square" aria-hidden="true"></span>
+              Since Incentives
+            </button>
+            <button class="chart-action" id="download-holders-csv" type="button" title="Download CSV">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              CSV
+            </button>
+          </div>
         </div>
         <div class="chart-container">
           <canvas id="holders-chart" aria-label="Holders over time"></canvas>
