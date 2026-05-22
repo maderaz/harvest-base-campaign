@@ -232,17 +232,14 @@
 }
 
 /* ── Chart cards ───────────────────────────────────────────── */
-/* Inner plot follows the charts.md spec: 14px corner radius, a
-   hairline --line-2 border, and a 14px-square radial-gradient
-   dot grid so the empty plot area carries weight without lines
-   that would compete with the bars. */
+/* Inner plot keeps the charts.md dotted radial-gradient grid only.
+   No outer frame, no Chart.js gridlines (those are killed in JS) -
+   the dots alone carry the empty-plot weight. */
 .chart-card { padding: 18px 20px; }
 .chart-container {
   position: relative;
   height: 340px;
   width: 100%;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-sm);
   background-image: radial-gradient(
     circle,
     var(--tint-strong) 1px,
@@ -250,7 +247,6 @@
   );
   background-size: 14px 14px;
   background-position: 0 100%;
-  overflow: hidden;
 }
 @media (max-width: 768px) {
   .chart-card { padding: 14px 14px; }
@@ -258,18 +254,16 @@
 }
 
 /* Toolbar above the chart: HTML legend (with chart-precise colors)
-   on the left, CSV download on the right. The bottom padding here
-   gives the legend breathing room from the plot area, which the
-   built-in Chart.js legend lacked. */
+   on the left, CSV download on the right. Spaced from the plot via
+   padding-bottom only - no separator line, the dotted grid below
+   already marks where the chart area starts. */
 .chart-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding-bottom: 18px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--line-2);
+  padding-bottom: 14px;
 }
 .chart-legend {
   display: inline-flex;

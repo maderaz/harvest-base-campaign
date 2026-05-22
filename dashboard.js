@@ -672,7 +672,7 @@
         interaction: { mode: 'index', intersect: false },
         scales: {
           x: {
-            grid: { color: theme.line2, drawBorder: false },
+            grid: { display: false, drawBorder: false },
             ticks: {
               color: theme.ink3,
               font: { family: "'JetBrains Mono', monospace", size: 11 },
@@ -680,12 +680,12 @@
               maxTicksLimit: 8,
               maxRotation: 0,
             },
-            border: { color: theme.line2 },
+            border: { display: false },
           },
           y: {
             position: 'left',
-            grid: { color: theme.line2, drawBorder: false },
-            border: { color: theme.line2 },
+            grid: { display: false, drawBorder: false },
+            border: { display: false },
             ticks: {
               color: theme.ink3,
               font: { family: "'JetBrains Mono', monospace", size: 11 },
@@ -697,7 +697,7 @@
             position: 'right',
             beginAtZero: false,
             grid: { display: false },
-            border: { color: theme.line2 },
+            border: { display: false },
             ticks: {
               color: theme.ink3,
               font: { family: "'JetBrains Mono', monospace", size: 11 },
@@ -792,8 +792,8 @@
         interaction: { mode: 'index', intersect: false },
         scales: {
           x: {
-            grid: { color: theme.line2, drawBorder: false },
-            border: { color: theme.line2 },
+            grid: { display: false, drawBorder: false },
+            border: { display: false },
             ticks: {
               color: theme.ink3,
               font: { family: "'JetBrains Mono', monospace", size: 11 },
@@ -804,8 +804,8 @@
           },
           y: {
             beginAtZero: true,
-            grid: { color: theme.line2, drawBorder: false },
-            border: { color: theme.line2 },
+            grid: { display: false, drawBorder: false },
+            border: { display: false },
             ticks: {
               color: theme.ink3,
               font: { family: "'JetBrains Mono', monospace", size: 11 },
