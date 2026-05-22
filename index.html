@@ -141,6 +141,13 @@
         </div>
         <div class="chart-container">
           <canvas id="tvl-apy-chart" aria-label="TVL and APY over time"></canvas>
+          <div class="loading-state is-overlay" id="tvl-loading" role="status">
+            <svg class="loading-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M21 12a9 9 0 0 1-9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <div class="loading-text">Loading vault history</div>
+          </div>
         </div>
       </div>
     </section>
@@ -175,6 +182,13 @@
         </div>
         <div class="chart-container">
           <canvas id="holders-chart" aria-label="Holders over time"></canvas>
+          <div class="loading-state is-overlay" id="holders-chart-loading" role="status">
+            <svg class="loading-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M21 12a9 9 0 0 1-9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <div class="loading-text">Loading holders history</div>
+          </div>
         </div>
       </div>
     </section>
@@ -219,7 +233,13 @@
               <span class="hub-th hub-th-right">Joined</span>
             </div>
             <div id="holders-rows">
-              <div class="hub-empty">Loading holders...</div>
+              <div class="loading-state" role="status">
+                <svg class="loading-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5"/>
+                  <path d="M21 12a9 9 0 0 1-9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+                <div class="loading-text">Loading holders</div>
+              </div>
             </div>
           </div>
         </div>
@@ -271,7 +291,13 @@
               <span class="hub-th hub-th-right">% Supply</span>
             </div>
             <div id="snapshot-rows">
-              <div class="hub-empty">Loading snapshot...</div>
+              <div class="loading-state" role="status">
+                <svg class="loading-spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5"/>
+                  <path d="M21 12a9 9 0 0 1-9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+                <div class="loading-text">Loading snapshot</div>
+              </div>
             </div>
           </div>
         </div>
