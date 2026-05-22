@@ -179,8 +179,16 @@
               <span class="legend-swatch is-bar" style="background: var(--gold);"></span>
               Holders
             </span>
+            <span class="legend-item" id="holders-apy-legend" hidden>
+              <span class="legend-swatch is-line-dashed" style="border-top-color: var(--apy);"></span>
+              APY
+            </span>
           </div>
           <div class="chart-actions">
+            <button class="chart-action apy-overlay" id="holders-show-apy" type="button" title="Overlay APY on the chart">
+              <span class="apy-square" aria-hidden="true"></span>
+              APY
+            </button>
             <button class="chart-action since-incentives" id="holders-since-incentives" type="button" title="Show holders since Base incentives started">
               <span class="base-square" aria-hidden="true"></span>
               Since Incentives

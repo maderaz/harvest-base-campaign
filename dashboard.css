@@ -337,6 +337,30 @@
   border-radius: 2px;
   flex-shrink: 0;
 }
+/* Small purple cue for the APY-overlay toggle on the holders chart,
+   matches the APY line color in the chart itself. */
+.apy-square {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--apy);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chart-action.apy-overlay.is-active {
+  background: rgba(124, 92, 255, 0.10);
+  color: var(--apy);
+  border-color: rgba(124, 92, 255, 0.45);
+}
+.chart-action.apy-overlay.is-active:hover {
+  background: rgba(124, 92, 255, 0.15);
+  border-color: rgba(124, 92, 255, 0.60);
+}
+:root[data-theme="dark"] .chart-action.apy-overlay.is-active {
+  background: rgba(124, 92, 255, 0.22);
+  color: #b8a5ff;
+  border-color: rgba(155, 133, 255, 0.55);
+}
 .chart-action.since-incentives.is-active {
   background: rgba(0, 82, 255, 0.10);
   color: #0052ff;

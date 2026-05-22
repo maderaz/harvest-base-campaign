@@ -39,6 +39,7 @@
     chartType: 'bar',
     tvlIncentivesMode: false,
     holdersIncentivesMode: false,
+    holdersShowApy: false,
     shareDecimals: 18,
     underlyingSymbol: 'WETH',
     usdPerShareNow: 0,
@@ -742,6 +743,7 @@
     if (state.holdersChart) state.holdersChart.destroy();
     const isBar = chartType === 'bar';
     const isIncMode = state.holdersIncentivesMode;
+    const showApy = state.holdersShowApy;
     const slice = isIncMode
       ? dailyHolders.filter((d) => d.date >= BASE_INCENTIVES_START)
       : dailyHolders;
@@ -754,7 +756,7 @@
       ? slice.map((_, i) => i === 0 ? BASE_BLUE : theme.gold)
       : theme.gold;
 
-    const dataset = isBar ? {
+    const holdersDataset = isBar ? {
       type: 'bar',
       label: 'Holders',
       data: slice.map((d) => d.count),
@@ -766,6 +768,8 @@
       borderSkipped: false,
       barPercentage: 0.92,
       categoryPercentage: 0.96,
+      yAxisID: 'y',
+      order: 2,
     } : {
       type: 'line',
       label: 'Holders',
@@ -777,43 +781,105 @@
       pointRadius: 0,
       pointHoverRadius: 4,
       fill: true,
+      yAxisID: 'y',
+      order: 2,
     };
+
+    const datasets = [holdersDataset];
+    if (showApy) {
+      // Build a date -> APY map from historyDaily so we can align
+      // the APY values to the holders-chart labels (slice dates).
+      // Forward-fill: if a holder day has no history entry that
+      // exact day, carry the prior known APY.
+      const apyByDate = new Map();
+      state.historyDaily.forEach((h) => apyByDate.set(h.date, h.apy));
+      let lastApy = null;
+      const sortedHistDates = state.historyDaily.map((h) => h.date);
+      const apyData = slice.map((d) => {
+        if (apyByDate.has(d.date)) {
+          lastApy = apyByDate.get(d.date);
+          return lastApy;
+        }
+        // Carry forward: find the most recent history date <= d.date
+        for (let i = sortedHistDates.length - 1; i >= 0; i--) {
+          if (sortedHistDates[i] <= d.date) {
+            lastApy = apyByDate.get(sortedHistDates[i]);
+            return lastApy;
+          }
+        }
+        return null;
+      });
+      datasets.push({
+        type: 'line',
+        label: 'APY',
+        data: apyData,
+        borderColor: theme.apy,
+        backgroundColor: 'transparent',
+        yAxisID: 'y1',
+        borderWidth: 2,
+        borderDash: [5, 4],
+        tension: 0.25,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: theme.apy,
+        pointHoverBorderColor: theme.apy,
+        fill: false,
+        spanGaps: true,
+        order: 1,
+      });
+    }
+
+    const scales = {
+      x: {
+        grid: { display: false, drawBorder: false },
+        border: { display: false },
+        ticks: {
+          color: theme.ink3,
+          font: { family: "'JetBrains Mono', monospace", size: 11 },
+          autoSkip: true,
+          maxTicksLimit: 8,
+          maxRotation: 0,
+        },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { display: false, drawBorder: false },
+        border: { display: false },
+        ticks: {
+          color: theme.ink3,
+          font: { family: "'JetBrains Mono', monospace", size: 11 },
+          precision: 0,
+          callback: (v) => fmtNumber(v),
+        },
+      },
+    };
+    if (showApy) {
+      scales.y1 = {
+        position: 'right',
+        beginAtZero: false,
+        grid: { display: false, drawBorder: false },
+        border: { display: false },
+        ticks: {
+          color: theme.ink3,
+          font: { family: "'JetBrains Mono', monospace", size: 11 },
+          callback: (v) => Number(v).toFixed(1) + '%',
+        },
+        title: { display: true, text: 'APY (%)', color: theme.ink2, font: { family: "'Inter', sans-serif", size: 12, weight: '500' } },
+      };
+    }
 
     const ctx = $('holders-chart').getContext('2d');
     state.holdersChart = new Chart(ctx, {
       type: isBar ? 'bar' : 'line',
       data: {
         labels: slice.map((d) => d.date),
-        datasets: [dataset],
+        datasets: datasets,
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        scales: {
-          x: {
-            grid: { display: false, drawBorder: false },
-            border: { display: false },
-            ticks: {
-              color: theme.ink3,
-              font: { family: "'JetBrains Mono', monospace", size: 11 },
-              autoSkip: true,
-              maxTicksLimit: 8,
-              maxRotation: 0,
-            },
-          },
-          y: {
-            beginAtZero: true,
-            grid: { display: false, drawBorder: false },
-            border: { display: false },
-            ticks: {
-              color: theme.ink3,
-              font: { family: "'JetBrains Mono', monospace", size: 11 },
-              precision: 0,
-              callback: (v) => fmtNumber(v),
-            },
-          },
-        },
+        scales: scales,
         plugins: {
           legend: { display: false },
           vline: isIncMode ? null : { date: BASE_INCENTIVES_START, label: 'Base Incentives Start', color: BASE_BLUE },
@@ -823,9 +889,14 @@
             bodyColor: theme.bg,
             padding: 10,
             cornerRadius: 8,
-            displayColors: false,
+            displayColors: showApy,
+            boxWidth: 8,
+            boxHeight: 8,
+            usePointStyle: true,
             callbacks: {
-              label: (c) => ' ' + fmtNumber(c.parsed.y) + ' holders',
+              label: (c) => c.dataset.yAxisID === 'y1'
+                ? ' APY: ' + Number(c.parsed.y).toFixed(2) + '%'
+                : ' ' + fmtNumber(c.parsed.y) + ' holders',
             },
           },
         },
@@ -1058,6 +1129,17 @@
       holdersIncBtn.addEventListener('click', () => {
         state.holdersIncentivesMode = !state.holdersIncentivesMode;
         holdersIncBtn.classList.toggle('is-active', state.holdersIncentivesMode);
+        renderHoldersChart(state.dailyHolderCounts, state.chartType);
+      });
+    }
+
+    const holdersApyBtn = $('holders-show-apy');
+    if (holdersApyBtn) {
+      holdersApyBtn.addEventListener('click', () => {
+        state.holdersShowApy = !state.holdersShowApy;
+        holdersApyBtn.classList.toggle('is-active', state.holdersShowApy);
+        const apyLegend = $('holders-apy-legend');
+        if (apyLegend) apyLegend.hidden = !state.holdersShowApy;
         renderHoldersChart(state.dailyHolderCounts, state.chartType);
       });
     }
