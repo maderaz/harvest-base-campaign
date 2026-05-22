@@ -268,6 +268,44 @@
 }
 .chart-action svg { display: block; flex-shrink: 0; }
 
+/* Group right-side toolbar buttons so they sit next to each other
+   rather than space-betweening apart. */
+.chart-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* "Since Incentives" toggle button. Default state matches the rest
+   of the toolbar; active state flips to Base blue tint to signal
+   the chart is filtered to the incentives-start window. */
+.base-square {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: #0052ff;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chart-action.since-incentives.is-active {
+  background: rgba(0, 82, 255, 0.10);
+  color: #0052ff;
+  border-color: rgba(0, 82, 255, 0.45);
+}
+.chart-action.since-incentives.is-active:hover {
+  background: rgba(0, 82, 255, 0.15);
+  border-color: rgba(0, 82, 255, 0.60);
+}
+:root[data-theme="dark"] .chart-action.since-incentives.is-active {
+  background: rgba(0, 82, 255, 0.22);
+  color: #9bb5ff;
+  border-color: rgba(120, 150, 255, 0.55);
+}
+:root[data-theme="dark"] .chart-action.since-incentives.is-active .base-square {
+  background: #6a8fff;
+}
+
 /* ── Rankings row (50/50 side-by-side) ─────────────────────── */
 .rankings-row {
   display: grid;
